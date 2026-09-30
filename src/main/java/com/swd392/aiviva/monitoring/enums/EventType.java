@@ -1,0 +1,13 @@
+﻿package com.swd392.aiviva.monitoring.enums;
+
+public enum EventType {
+    EXAM_STARTED,
+    QUESTION_PRESENTED,
+    ANSWER_STARTED,
+    ANSWER_SUBMITTED,
+    FOLLOW_UP_GENERATED,
+    AI_SCORE_GENERATED,
+    LECTURER_SCORE_UPDATED,
+    EXAM_FINISHED
+}
+
