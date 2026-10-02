@@ -1,4 +1,4 @@
-﻿package com.swd392.aiviva.auth.security;
+package com.swd392.aiviva.auth.security;
 
 public interface JwtService {
 

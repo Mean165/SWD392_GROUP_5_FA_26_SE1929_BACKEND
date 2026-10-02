@@ -1,4 +1,4 @@
-﻿package com.swd392.aiviva.exam.controller;
+package com.swd392.aiviva.exam.controller;
 
 import com.swd392.aiviva.common.response.ApiResponse;
 import com.swd392.aiviva.exam.dto.request.ExamRequest;

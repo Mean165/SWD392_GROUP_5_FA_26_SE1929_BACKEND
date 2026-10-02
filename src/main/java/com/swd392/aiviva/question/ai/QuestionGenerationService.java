@@ -1,4 +1,4 @@
-﻿package com.swd392.aiviva.question.ai;
+package com.swd392.aiviva.question.ai;
 
 public interface QuestionGenerationService {
 

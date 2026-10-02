@@ -1,4 +1,4 @@
-﻿package com.swd392.aiviva.question.enums;
+package com.swd392.aiviva.question.enums;
 
 public enum QuestionStatus {
     DRAFT,

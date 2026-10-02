@@ -1,14 +1,14 @@
-﻿package com.swd392.aiviva.user.dto.request;
+package com.swd392.aiviva.user.dto.request;
 
-import com.swd392.aiviva.user.enums.RoleType;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateUserRequest {
@@ -17,12 +17,14 @@ public class CreateUserRequest {
     private String fullName;
 
     @NotBlank(message = "Email is required")
-    @Email(message = "Email must be valid")
+    @Email(message = "Invalid email format")
     private String email;
 
+    @NotBlank(message = "Password is required")
+    private String password;
+
     private String phoneNumber;
-
-    @NotNull(message = "Role is required")
-    private RoleType role;
+    private String roleCode; // AD, LE, ST
+    private String department;
+    private Boolean isActive;
 }
-

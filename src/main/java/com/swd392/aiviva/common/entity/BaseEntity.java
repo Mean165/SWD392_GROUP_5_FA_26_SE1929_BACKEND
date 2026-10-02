@@ -1,4 +1,4 @@
-﻿package com.swd392.aiviva.common.entity;
+package com.swd392.aiviva.common.entity;
 
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;

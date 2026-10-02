@@ -1,4 +1,4 @@
-﻿package com.swd392.aiviva.exam.dto.request;
+package com.swd392.aiviva.exam.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

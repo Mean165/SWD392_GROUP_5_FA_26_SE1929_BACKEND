@@ -1,8 +1,9 @@
-﻿package com.swd392.aiviva.user.controller;
+package com.swd392.aiviva.user.controller;
 
 import com.swd392.aiviva.common.response.ApiResponse;
 import com.swd392.aiviva.user.dto.request.CreateUserRequest;
 import com.swd392.aiviva.user.dto.request.UpdateUserRequest;
+import com.swd392.aiviva.user.dto.request.UserFilterRequest;
 import com.swd392.aiviva.user.dto.response.UserResponse;
 import com.swd392.aiviva.user.service.UserService;
 import jakarta.validation.Valid;
@@ -10,6 +11,7 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -33,8 +35,18 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.success("User retrieved", userService.getUserById(id)));
+    public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable String id) {
+        return ResponseEntity.ok(ApiResponse.success("User retrieved", userService.getUserByIdentifier(id)));
+    }
+
+    @PostMapping("/filter")
+    public ResponseEntity<ApiResponse<List<UserResponse>>> filterUsersPost(@RequestBody UserFilterRequest filterRequest) {
+        return ResponseEntity.ok(ApiResponse.success("Filtered users retrieved", userService.filterUsers(filterRequest)));
+    }
+
+    @GetMapping("/filter")
+    public ResponseEntity<ApiResponse<List<UserResponse>>> filterUsersGet(@ModelAttribute UserFilterRequest filterRequest) {
+        return ResponseEntity.ok(ApiResponse.success("Filtered users retrieved", userService.filterUsers(filterRequest)));
     }
 
     @PostMapping
@@ -43,7 +55,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<UserResponse>> updateUser(@PathVariable Long id,
+    public ResponseEntity<ApiResponse<UserResponse>> updateUser(@PathVariable String id,
                                                                @Valid @RequestBody UpdateUserRequest request) {
         return ResponseEntity.ok(ApiResponse.success("User updated", userService.updateUser(id, request)));
     }
@@ -54,4 +66,3 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success("User deleted", null));
     }
 }
-
