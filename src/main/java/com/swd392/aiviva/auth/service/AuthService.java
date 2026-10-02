@@ -8,13 +8,13 @@ import com.swd392.aiviva.user.dto.response.UserResponse;
 
 public interface AuthService {
 
-    LoginResponse login(LoginRequest request);
-
     UserResponse register(RegisterRequest request);
+
+    LoginResponse login(LoginRequest request);
 
     LoginResponse refreshToken(RefreshTokenRequest request);
 
-    void logout();
+    UserResponse getCurrentUser();
 
-    UserResponse me();
+    void logout();
 }

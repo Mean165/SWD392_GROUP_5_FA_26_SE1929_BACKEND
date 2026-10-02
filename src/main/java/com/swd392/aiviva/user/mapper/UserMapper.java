@@ -2,37 +2,42 @@ package com.swd392.aiviva.user.mapper;
 
 import com.swd392.aiviva.user.dto.response.RoleResponse;
 import com.swd392.aiviva.user.dto.response.UserResponse;
+import com.swd392.aiviva.user.entity.AppUser;
 import com.swd392.aiviva.user.entity.Role;
-import com.swd392.aiviva.user.entity.User;
+import org.springframework.stereotype.Component;
 
+@Component
 public class UserMapper {
 
-    public static RoleResponse toRoleResponse(Role role) {
-        if (role == null) {
-            return null;
-        }
-        return RoleResponse.builder()
-                .id(role.getId())
-                .code(role.getCode())
-                .description(role.getDescription())
-                .build();
-    }
-
-    public static UserResponse toUserResponse(User user) {
+    public UserResponse toResponse(AppUser user) {
         if (user == null) {
             return null;
         }
+
+        RoleResponse roleResponse = null;
+        String roleName = null;
+
+        if (user.getRole() != null) {
+            Role r = user.getRole();
+            roleName = r.getRoleName() != null ? r.getRoleName() : r.getRoleCode();
+            roleResponse = RoleResponse.builder()
+                    .roleId(r.getRoleId())
+                    .roleCode(r.getRoleCode())
+                    .roleName(r.getRoleName())
+                    .description(r.getDescription())
+                    .createdAt(r.getCreatedAt())
+                    .build();
+        }
+
         return UserResponse.builder()
-                .id(user.getId())
+                .userId(user.getUserId())
                 .fullName(user.getFullName())
                 .email(user.getEmail())
-                .phoneNumber(user.getPhoneNumber())
                 .studentOrStaffCode(user.getStudentOrStaffCode())
-                .department(user.getDepartment())
                 .isActive(user.getIsActive())
-                .role(toRoleResponse(user.getRole()))
                 .createdAt(user.getCreatedAt())
-                .updatedAt(user.getUpdatedAt())
+                .roleName(roleName)
+                .role(roleResponse)
                 .build();
     }
 }

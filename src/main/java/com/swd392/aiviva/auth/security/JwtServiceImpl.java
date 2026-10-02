@@ -6,8 +6,7 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import java.security.Key;
 import java.util.Date;
-
-import org.springframework.beans.factory.annotation.Value;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -18,7 +17,13 @@ public class JwtServiceImpl implements JwtService {
 
     @Override
     public String generateToken(String username) {
+        return generateToken(username, Map.of());
+    }
+
+    @Override
+    public String generateToken(String username, Map<String, Object> extraClaims) {
         return Jwts.builder()
+                .setClaims(extraClaims)
                 .setSubject(username)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
@@ -32,6 +37,11 @@ public class JwtServiceImpl implements JwtService {
     }
 
     @Override
+    public String extractEmail(String token) {
+        return extractUsername(token);
+    }
+
+    @Override
     public boolean isTokenValid(String token, String username) {
         try {
             final String extractedUsername = extractUsername(token);
@@ -39,6 +49,11 @@ public class JwtServiceImpl implements JwtService {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    @Override
+    public long getExpirationTime() {
+        return EXPIRATION_TIME / 1000;
     }
 
     private boolean isTokenExpired(String token) {

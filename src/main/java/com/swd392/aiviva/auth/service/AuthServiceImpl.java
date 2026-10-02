@@ -4,17 +4,17 @@ import com.swd392.aiviva.auth.dto.request.LoginRequest;
 import com.swd392.aiviva.auth.dto.request.RefreshTokenRequest;
 import com.swd392.aiviva.auth.dto.request.RegisterRequest;
 import com.swd392.aiviva.auth.dto.response.LoginResponse;
-import com.swd392.aiviva.auth.entity.UserAuthentication;
-import com.swd392.aiviva.auth.repository.UserAuthenticationRepository;
 import com.swd392.aiviva.auth.security.JwtService;
 import com.swd392.aiviva.common.exception.BusinessException;
 import com.swd392.aiviva.user.dto.response.UserResponse;
+import com.swd392.aiviva.user.entity.AppUser;
 import com.swd392.aiviva.user.entity.Role;
-import com.swd392.aiviva.user.entity.User;
 import com.swd392.aiviva.user.mapper.UserMapper;
 import com.swd392.aiviva.user.repository.RoleRepository;
 import com.swd392.aiviva.user.repository.UserRepository;
-import java.util.List;
+import java.time.OffsetDateTime;
+import java.util.Map;
+import java.util.UUID;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,101 +24,142 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AuthServiceImpl implements AuthService {
 
+    private static final UUID DEFAULT_STUDENT_ROLE_ID = UUID.fromString("00000000-0000-0000-0000-000000000003");
+
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
-    private final UserAuthenticationRepository userAuthRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final UserMapper userMapper;
 
     public AuthServiceImpl(UserRepository userRepository,
                            RoleRepository roleRepository,
-                           UserAuthenticationRepository userAuthRepository,
                            PasswordEncoder passwordEncoder,
-                           JwtService jwtService) {
+                           JwtService jwtService,
+                           UserMapper userMapper) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
-        this.userAuthRepository = userAuthRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.userMapper = userMapper;
     }
 
     @Override
     @Transactional
     public UserResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new BusinessException("Email is already registered");
+        String email = request.getEmail().trim().toLowerCase();
+        if (userRepository.existsByEmail(email)) {
+            throw new BusinessException("Email already registered: " + email);
         }
 
-        Role studentRole = roleRepository.findByCode("ST")
-                .orElseGet(() -> roleRepository.save(Role.builder().code("ST").description("Student").build()));
+        Role role = roleRepository.findByRoleCode("ST")
+                .orElseGet(() -> roleRepository.findById(DEFAULT_STUDENT_ROLE_ID)
+                        .orElseGet(() -> roleRepository.save(
+                                Role.builder()
+                                        .roleId(DEFAULT_STUDENT_ROLE_ID)
+                                        .roleCode("ST")
+                                        .roleName("Student")
+                                        .description("Student role")
+                                        .createdAt(OffsetDateTime.now())
+                                        .build()
+                        )));
 
-        String studentCode = generateNextCode("ST");
+        String studentCode = generateNextStudentOrStaffCode(role.getRoleCode());
 
-        User user = User.builder()
-                .fullName(request.getFullName())
-                .email(request.getEmail())
-                .phoneNumber(request.getPhoneNumber())
+        String encodedPassword = passwordEncoder.encode(request.getPassword());
+
+        AppUser appUser = AppUser.builder()
+                .fullName(request.getFullName().trim())
+                .email(email)
+                .passwordHash(encodedPassword)
                 .studentOrStaffCode(studentCode)
-                .department(request.getDepartment())
-                .role(studentRole)
+                .role(role)
                 .isActive(true)
+                .createdAt(OffsetDateTime.now())
                 .build();
 
-        User savedUser = userRepository.save(user);
-
-        UserAuthentication userAuth = UserAuthentication.builder()
-                .username(request.getEmail())
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .enabled(true)
-                .provider("LOCAL")
-                .user(savedUser)
-                .build();
-
-        userAuthRepository.save(userAuth);
-
-        return UserMapper.toUserResponse(savedUser);
+        AppUser savedUser = userRepository.save(appUser);
+        return userMapper.toResponse(savedUser);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new BusinessException("Invalid email or password"));
+        String inputIdentifier = request.getEmail().trim();
 
-        UserAuthentication userAuth = userAuthRepository.findByUser(user)
-                .orElseThrow(() -> new BusinessException("Invalid email or password"));
+        AppUser user = userRepository.findByEmailOrStudentOrStaffCode(inputIdentifier, inputIdentifier)
+                .orElseThrow(() -> new BusinessException("Invalid email/code or password"));
 
-        if (!passwordEncoder.matches(request.getPassword(), userAuth.getPasswordHash())) {
-            throw new BusinessException("Invalid email or password");
+        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+            throw new BusinessException("Invalid email/code or password");
         }
 
         if (Boolean.FALSE.equals(user.getIsActive())) {
-            throw new BusinessException("Account is disabled");
+            throw new BusinessException("User account is inactive");
         }
 
-        String token = jwtService.generateToken(user.getEmail());
+        String roleName = user.getRole() != null ? user.getRole().getRoleCode() : "USER";
+        Map<String, Object> claims = Map.of(
+                "userId", user.getUserId().toString(),
+                "role", roleName,
+                "fullName", user.getFullName()
+        );
+
+        String token = jwtService.generateToken(user.getEmail(), claims);
 
         return LoginResponse.builder()
-                .token(token)
+                .accessToken(token)
                 .tokenType("Bearer")
-                .expiresIn(86400L)
-                .user(UserMapper.toUserResponse(user))
+                .expiresIn(jwtService.getExpirationTime())
+                .userId(user.getUserId())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .studentOrStaffCode(user.getStudentOrStaffCode())
+                .roleName(roleName)
+                .user(userMapper.toResponse(user))
                 .build();
     }
 
     @Override
     public LoginResponse refreshToken(RefreshTokenRequest request) {
-        String username = jwtService.extractUsername(request.getRefreshToken());
-        User user = userRepository.findByEmail(username)
+        String email = jwtService.extractEmail(request.getRefreshToken());
+        AppUser user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new BusinessException("Invalid refresh token"));
 
-        String newToken = jwtService.generateToken(user.getEmail());
+        String roleName = user.getRole() != null ? user.getRole().getRoleCode() : "USER";
+        Map<String, Object> claims = Map.of(
+                "userId", user.getUserId().toString(),
+                "role", roleName,
+                "fullName", user.getFullName()
+        );
+
+        String token = jwtService.generateToken(user.getEmail(), claims);
 
         return LoginResponse.builder()
-                .token(newToken)
+                .accessToken(token)
                 .tokenType("Bearer")
-                .expiresIn(86400L)
-                .user(UserMapper.toUserResponse(user))
+                .expiresIn(jwtService.getExpirationTime())
+                .userId(user.getUserId())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .studentOrStaffCode(user.getStudentOrStaffCode())
+                .roleName(roleName)
+                .user(userMapper.toResponse(user))
                 .build();
+    }
+
+    @Override
+    public UserResponse getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
+            throw new BusinessException("User is not authenticated");
+        }
+
+        String email = authentication.getName();
+        AppUser user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BusinessException("User profile not found for email: " + email));
+
+        return userMapper.toResponse(user);
     }
 
     @Override
@@ -126,33 +167,15 @@ public class AuthServiceImpl implements AuthService {
         SecurityContextHolder.clearContext();
     }
 
-    @Override
-    public UserResponse me() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
-            throw new BusinessException("User is not authenticated");
-        }
-        String email = authentication.getName();
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new BusinessException("User profile not found"));
-        return UserMapper.toUserResponse(user);
-    }
+    private String generateNextStudentOrStaffCode(String roleCode) {
+        String prefix = (roleCode != null && !roleCode.isBlank()) ? roleCode.toUpperCase() : "ST";
+        long sequence = userRepository.count() + 1;
+        String candidateCode = prefix + sequence;
 
-    private String generateNextCode(String prefix) {
-        List<String> existingCodes = userRepository.findAllCodesByPrefix(prefix);
-        int maxIndex = 0;
-        for (String code : existingCodes) {
-            if (code != null && code.startsWith(prefix)) {
-                String numericPart = code.substring(prefix.length());
-                try {
-                    int val = Integer.parseInt(numericPart);
-                    if (val > maxIndex) {
-                        maxIndex = val;
-                    }
-                } catch (NumberFormatException ignored) {
-                }
-            }
+        while (userRepository.existsByStudentOrStaffCode(candidateCode)) {
+            sequence++;
+            candidateCode = prefix + sequence;
         }
-        return prefix + (maxIndex + 1);
+        return candidateCode;
     }
 }

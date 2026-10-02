@@ -8,6 +8,7 @@ import com.swd392.aiviva.auth.service.AuthService;
 import com.swd392.aiviva.common.response.ApiResponse;
 import com.swd392.aiviva.user.dto.response.UserResponse;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,7 +28,8 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<UserResponse>> register(@Valid @RequestBody RegisterRequest request) {
-        return ResponseEntity.ok(ApiResponse.success("Registration successful", authService.register(request)));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Account registered successfully", authService.register(request)));
     }
 
     @PostMapping("/login")
@@ -40,14 +42,14 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Token refreshed", authService.refreshToken(request)));
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser() {
+        return ResponseEntity.ok(ApiResponse.success("Current user profile retrieved successfully", authService.getCurrentUser()));
+    }
+
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout() {
         authService.logout();
         return ResponseEntity.ok(ApiResponse.success("Logout successful", null));
-    }
-
-    @GetMapping("/me")
-    public ResponseEntity<ApiResponse<UserResponse>> me() {
-        return ResponseEntity.ok(ApiResponse.success("User profile retrieved", authService.me()));
     }
 }

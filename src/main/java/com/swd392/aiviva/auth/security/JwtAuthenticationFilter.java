@@ -1,7 +1,6 @@
 package com.swd392.aiviva.auth.security;
 
-import com.swd392.aiviva.auth.repository.UserAuthenticationRepository;
-import com.swd392.aiviva.user.entity.User;
+import com.swd392.aiviva.user.entity.AppUser;
 import com.swd392.aiviva.user.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -10,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -29,7 +29,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+    protected void doFilterInternal(@NonNull HttpServletRequest request,
+                                    @NonNull HttpServletResponse response,
+                                    @NonNull FilterChain filterChain)
             throws ServletException, IOException {
 
         final String authHeader = request.getHeader("Authorization");
@@ -42,10 +44,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String userEmail = jwtService.extractUsername(jwt);
 
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            User user = userRepository.findByEmail(userEmail).orElse(null);
+            AppUser user = userRepository.findByEmail(userEmail).orElse(null);
 
             if (user != null && jwtService.isTokenValid(jwt, userEmail)) {
-                String roleCode = (user.getRole() != null) ? user.getRole().getCode() : "ST";
+                String roleCode = (user.getRole() != null) ? user.getRole().getRoleCode() : "ST";
                 List<SimpleGrantedAuthority> authorities = Collections.singletonList(
                         new SimpleGrantedAuthority("ROLE_" + roleCode));
 
