@@ -1,4 +1,4 @@
-package com.swd392.aiviva.report.controller;
+﻿package com.swd392.aiviva.report.controller;
 
 import com.swd392.aiviva.common.response.ApiResponse;
 import com.swd392.aiviva.report.dto.response.ClassStatisticsResponse;

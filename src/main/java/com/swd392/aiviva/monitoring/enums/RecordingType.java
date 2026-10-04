@@ -1,4 +1,4 @@
-package com.swd392.aiviva.monitoring.enums;
+﻿package com.swd392.aiviva.monitoring.enums;
 
 public enum RecordingType {
     AUDIO,
