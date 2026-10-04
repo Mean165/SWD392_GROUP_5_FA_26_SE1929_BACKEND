@@ -1,4 +1,4 @@
-package com.swd392.aiviva.common.exception;
+﻿package com.swd392.aiviva.common.exception;
 
 import com.swd392.aiviva.common.response.ApiResponse;
 import jakarta.validation.ConstraintViolationException;

@@ -1,4 +1,4 @@
-package com.swd392.aiviva.common.exception;
+﻿package com.swd392.aiviva.common.exception;
 
 public class BusinessException extends RuntimeException {
 

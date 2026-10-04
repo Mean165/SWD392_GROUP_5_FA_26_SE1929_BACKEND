@@ -1,4 +1,4 @@
-package com.swd392.aiviva.exam.repository;
+﻿package com.swd392.aiviva.exam.repository;
 
 import com.swd392.aiviva.exam.entity.Exam;
 import org.springframework.data.jpa.repository.JpaRepository;

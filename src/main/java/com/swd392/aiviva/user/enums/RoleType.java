@@ -1,4 +1,4 @@
-package com.swd392.aiviva.user.enums;
+﻿package com.swd392.aiviva.user.enums;
 
 public enum RoleType {
     ADMIN,

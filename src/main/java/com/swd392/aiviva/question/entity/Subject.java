@@ -1,4 +1,4 @@
-package com.swd392.aiviva.question.entity;
+﻿package com.swd392.aiviva.question.entity;
 
 import com.swd392.aiviva.common.entity.BaseEntity;
 import jakarta.persistence.Entity;

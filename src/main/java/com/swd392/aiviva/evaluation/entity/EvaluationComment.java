@@ -1,4 +1,4 @@
-package com.swd392.aiviva.evaluation.entity;
+﻿package com.swd392.aiviva.evaluation.entity;
 
 import com.swd392.aiviva.common.entity.BaseEntity;
 import jakarta.persistence.Entity;

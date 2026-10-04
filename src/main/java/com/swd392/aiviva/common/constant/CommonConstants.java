@@ -1,4 +1,4 @@
-package com.swd392.aiviva.common.constant;
+﻿package com.swd392.aiviva.common.constant;
 
 public final class CommonConstants {
 
