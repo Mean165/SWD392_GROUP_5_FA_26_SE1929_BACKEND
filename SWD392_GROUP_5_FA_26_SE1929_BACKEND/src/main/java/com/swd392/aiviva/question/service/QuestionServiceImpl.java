@@ -63,6 +63,13 @@ public class QuestionServiceImpl implements QuestionService {
         return mapToResponse(updatedQuestion);
     }
 
+    @Override
+    public void deleteQuestion(UUID id) {
+        Question question = questionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Question not found"));
+        questionRepository.delete(question);
+    }
+
     private QuestionResponse mapToResponse(Question question) {
         return QuestionResponse.builder()
                 .questionId(question.getQuestionId())

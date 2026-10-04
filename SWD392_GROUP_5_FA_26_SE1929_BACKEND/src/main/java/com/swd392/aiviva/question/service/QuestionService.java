@@ -18,4 +18,6 @@ public interface QuestionService {
     QuestionResponse createQuestion(QuestionCreateRequest request);
 
     QuestionResponse updateQuestion(UUID id, QuestionUpdateRequest request);
+
+    void deleteQuestion(UUID id);
 }

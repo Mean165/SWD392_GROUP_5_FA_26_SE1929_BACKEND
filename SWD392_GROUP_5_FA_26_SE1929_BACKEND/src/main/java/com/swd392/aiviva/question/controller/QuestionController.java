@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -54,5 +55,11 @@ public class QuestionController {
             @PathVariable UUID id,
             @Valid @RequestBody QuestionUpdateRequest request) {
         return ResponseEntity.ok(ApiResponse.success("Question updated successfully", questionService.updateQuestion(id, request)));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteQuestion(@PathVariable UUID id) {
+        questionService.deleteQuestion(id);
+        return ResponseEntity.ok(ApiResponse.success("Question deleted successfully", null));
     }
 }
