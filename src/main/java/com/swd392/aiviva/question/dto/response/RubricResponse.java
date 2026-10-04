@@ -1,4 +1,4 @@
-﻿package com.swd392.aiviva.question.dto.response;
+package com.swd392.aiviva.question.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

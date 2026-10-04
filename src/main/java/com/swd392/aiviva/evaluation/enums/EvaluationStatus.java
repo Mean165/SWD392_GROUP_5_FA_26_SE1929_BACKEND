@@ -1,4 +1,4 @@
-﻿package com.swd392.aiviva.evaluation.enums;
+package com.swd392.aiviva.evaluation.enums;
 
 public enum EvaluationStatus {
     AI_SUGGESTED,

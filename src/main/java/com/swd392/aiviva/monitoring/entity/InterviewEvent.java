@@ -1,4 +1,4 @@
-﻿package com.swd392.aiviva.monitoring.entity;
+package com.swd392.aiviva.monitoring.entity;
 
 import com.swd392.aiviva.common.entity.BaseEntity;
 import com.swd392.aiviva.monitoring.enums.EventType;

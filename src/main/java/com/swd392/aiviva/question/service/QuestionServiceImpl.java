@@ -1,4 +1,4 @@
-﻿package com.swd392.aiviva.question.service;
+package com.swd392.aiviva.question.service;
 
 import com.swd392.aiviva.question.dto.request.QuestionGenerationRequest;
 import com.swd392.aiviva.question.dto.response.QuestionResponse;

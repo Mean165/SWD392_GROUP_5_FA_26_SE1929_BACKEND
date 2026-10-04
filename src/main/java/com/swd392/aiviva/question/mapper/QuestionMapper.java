@@ -1,4 +1,4 @@
-﻿package com.swd392.aiviva.question.mapper;
+package com.swd392.aiviva.question.mapper;
 
 import com.swd392.aiviva.question.dto.response.QuestionResponse;
 import com.swd392.aiviva.question.entity.Question;

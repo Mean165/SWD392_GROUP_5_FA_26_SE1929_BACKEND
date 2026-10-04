@@ -1,4 +1,4 @@
-﻿package com.swd392.aiviva.interview.dto.request;
+package com.swd392.aiviva.interview.dto.request;
 
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
