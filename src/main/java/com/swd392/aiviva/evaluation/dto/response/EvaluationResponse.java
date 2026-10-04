@@ -1,4 +1,4 @@
-package com.swd392.aiviva.evaluation.dto.response;
+﻿package com.swd392.aiviva.evaluation.dto.response;
 
 import com.swd392.aiviva.evaluation.enums.EvaluationStatus;
 import lombok.AllArgsConstructor;

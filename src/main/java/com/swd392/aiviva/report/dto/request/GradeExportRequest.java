@@ -1,4 +1,4 @@
-package com.swd392.aiviva.report.dto.request;
+﻿package com.swd392.aiviva.report.dto.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

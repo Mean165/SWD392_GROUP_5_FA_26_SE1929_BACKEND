@@ -1,4 +1,4 @@
-package com.swd392.aiviva.question.repository;
+﻿package com.swd392.aiviva.question.repository;
 
 import com.swd392.aiviva.question.entity.Rubric;
 import org.springframework.data.jpa.repository.JpaRepository;

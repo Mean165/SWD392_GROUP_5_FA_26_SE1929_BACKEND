@@ -1,4 +1,4 @@
-package com.swd392.aiviva.interview.entity;
+﻿package com.swd392.aiviva.interview.entity;
 
 import com.swd392.aiviva.common.entity.BaseEntity;
 import com.swd392.aiviva.interview.enums.InterviewStatus;

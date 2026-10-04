@@ -1,4 +1,4 @@
-package com.swd392.aiviva.auth.dto.request;
+﻿package com.swd392.aiviva.auth.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;

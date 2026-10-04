@@ -1,4 +1,4 @@
-package com.swd392.aiviva.interview.ai.followup;
+﻿package com.swd392.aiviva.interview.ai.followup;
 
 public interface FollowUpQuestionProviderAdapter {
 

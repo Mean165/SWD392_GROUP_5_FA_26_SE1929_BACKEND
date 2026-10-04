@@ -2,10 +2,12 @@
 
 import com.swd392.aiviva.common.entity.BaseEntity;
 import com.swd392.aiviva.user.enums.RoleType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -16,12 +18,23 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "roles")
-public class Role extends BaseEntity {
+@Table(name = "users")
+public class User extends BaseEntity {
+
+    @Column(nullable = false)
+    private String fullName;
+
+    @Column(unique = true, nullable = false)
+    private String email;
+
+    private String phoneNumber;
 
     @Enumerated(EnumType.STRING)
-    private RoleType code;
+    @Column(nullable = false)
+    private RoleType role;
 
-    private String description;
+    private Boolean enabled;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }
 

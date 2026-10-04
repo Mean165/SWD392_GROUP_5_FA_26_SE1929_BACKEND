@@ -1,4 +1,4 @@
-package com.swd392.aiviva.interview.dto.response;
+﻿package com.swd392.aiviva.interview.dto.response;
 
 import com.swd392.aiviva.interview.enums.InterviewStatus;
 import java.time.LocalDateTime;
