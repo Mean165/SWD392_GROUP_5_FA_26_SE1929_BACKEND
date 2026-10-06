@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS app_user (
     role_id UUID NOT NULL,
     full_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
     student_or_staff_code VARCHAR(255) UNIQUE,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,

@@ -64,7 +64,15 @@ public class AuthServiceImpl implements AuthService {
                                         .build()
                         )));
 
-        String studentCode = generateNextStudentOrStaffCode(role.getRoleCode());
+        String studentCode = request.getStudentOrStaffCode();
+        if (studentCode != null && !studentCode.trim().isBlank()) {
+            studentCode = studentCode.trim();
+            if (userRepository.existsByStudentOrStaffCode(studentCode)) {
+                throw new BusinessException("Student or staff code already exists: " + studentCode);
+            }
+        } else {
+            studentCode = generateNextStudentOrStaffCode(role.getRoleCode());
+        }
 
         String encodedPassword = passwordEncoder.encode(request.getPassword());
 
@@ -169,7 +177,7 @@ public class AuthServiceImpl implements AuthService {
 
     private String generateNextStudentOrStaffCode(String roleCode) {
         String prefix = (roleCode != null && !roleCode.isBlank()) ? roleCode.toUpperCase() : "ST";
-        long sequence = userRepository.count() + 1;
+        long sequence = 1;
         String candidateCode = prefix + sequence;
 
         while (userRepository.existsByStudentOrStaffCode(candidateCode)) {
