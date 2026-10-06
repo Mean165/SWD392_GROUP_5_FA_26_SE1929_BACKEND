@@ -1,4 +1,4 @@
-﻿package com.swd392.aiviva.interview.controller;
+package com.swd392.aiviva.interview.controller;
 
 import com.swd392.aiviva.common.response.ApiResponse;
 import com.swd392.aiviva.interview.dto.request.StartInterviewRequest;

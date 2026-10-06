@@ -1,4 +1,4 @@
-﻿package com.swd392.aiviva.common.response;
+package com.swd392.aiviva.common.response;
 
 import java.time.Instant;
 import java.util.List;

@@ -1,23 +1,24 @@
-﻿package com.swd392.aiviva.question.dto.response;
+package com.swd392.aiviva.question.dto.response;
 
-import com.swd392.aiviva.question.enums.BloomLevel;
-import com.swd392.aiviva.question.enums.QuestionSource;
-import com.swd392.aiviva.question.enums.QuestionStatus;
+import java.time.OffsetDateTime;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class QuestionResponse {
 
-    private Long id;
-    private String content;
-    private BloomLevel bloomLevel;
-    private QuestionStatus status;
-    private QuestionSource source;
-    private String subjectCode;
-    private String topicCode;
+    private UUID questionId;
+    private UUID topicId;
+    private UUID createdBy;
+    private String questionText;
+    private String bloomLevel;
+    private String sourceType;
+    private String approvalStatus;
+    private OffsetDateTime createdAt;
 }
-
