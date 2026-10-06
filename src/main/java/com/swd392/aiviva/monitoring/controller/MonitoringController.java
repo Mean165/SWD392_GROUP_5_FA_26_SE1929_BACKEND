@@ -1,4 +1,4 @@
-﻿package com.swd392.aiviva.monitoring.controller;
+package com.swd392.aiviva.monitoring.controller;
 
 import com.swd392.aiviva.common.response.ApiResponse;
 import org.springframework.http.ResponseEntity;

@@ -1,4 +1,4 @@
-﻿package com.swd392.aiviva.common.exception;
+package com.swd392.aiviva.common.exception;
 
 import com.swd392.aiviva.common.response.ApiResponse;
 import jakarta.validation.ConstraintViolationException;
@@ -38,6 +38,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleConstraintViolation(ConstraintViolationException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error("Endpoint not found: /" + ex.getResourcePath()));
     }
 
     @ExceptionHandler(Exception.class)

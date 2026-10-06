@@ -1,12 +1,14 @@
-﻿package com.swd392.aiviva.user.controller;
+package com.swd392.aiviva.user.controller;
 
 import com.swd392.aiviva.common.response.ApiResponse;
 import com.swd392.aiviva.user.dto.request.CreateUserRequest;
 import com.swd392.aiviva.user.dto.request.UpdateUserRequest;
+import com.swd392.aiviva.user.dto.request.UserFilterRequest;
 import com.swd392.aiviva.user.dto.response.UserResponse;
 import com.swd392.aiviva.user.service.UserService;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,29 +31,38 @@ public class UserController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<UserResponse>>> getAllUsers() {
-        return ResponseEntity.ok(ApiResponse.success("Users retrieved", userService.getAllUsers()));
+        return ResponseEntity.ok(ApiResponse.success("Users retrieved successfully", userService.getAllUsers()));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.success("User retrieved", userService.getUserById(id)));
+    public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable("id") String id) {
+        return ResponseEntity.ok(ApiResponse.success("User retrieved successfully", userService.getUserById(id)));
+    }
+
+    @PostMapping("/filter")
+    public ResponseEntity<ApiResponse<List<UserResponse>>> filterUsersPost(@RequestBody(required = false) UserFilterRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Users filtered successfully", userService.filterUsers(request)));
+    }
+
+    @GetMapping("/filter")
+    public ResponseEntity<ApiResponse<List<UserResponse>>> filterUsersGet(UserFilterRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Users filtered successfully", userService.filterUsers(request)));
     }
 
     @PostMapping
     public ResponseEntity<ApiResponse<UserResponse>> createUser(@Valid @RequestBody CreateUserRequest request) {
-        return ResponseEntity.ok(ApiResponse.success("User created", userService.createUser(request)));
+        return ResponseEntity.ok(ApiResponse.success("User created successfully", userService.createUser(request)));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<UserResponse>> updateUser(@PathVariable Long id,
-                                                               @Valid @RequestBody UpdateUserRequest request) {
-        return ResponseEntity.ok(ApiResponse.success("User updated", userService.updateUser(id, request)));
+    public ResponseEntity<ApiResponse<UserResponse>> updateUser(@PathVariable("id") String id,
+                                                                 @Valid @RequestBody UpdateUserRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("User updated successfully", userService.updateUser(id, request)));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable("id") UUID id) {
         userService.deleteUser(id);
-        return ResponseEntity.ok(ApiResponse.success("User deleted", null));
+        return ResponseEntity.ok(ApiResponse.success("User deleted successfully", null));
     }
 }
-

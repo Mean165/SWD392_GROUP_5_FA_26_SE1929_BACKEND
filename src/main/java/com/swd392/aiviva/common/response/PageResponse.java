@@ -1,4 +1,4 @@
-﻿package com.swd392.aiviva.common.response;
+package com.swd392.aiviva.common.response;
 
 import java.util.List;
 import lombok.AllArgsConstructor;
