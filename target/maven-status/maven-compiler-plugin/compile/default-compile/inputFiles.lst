@@ -38,8 +38,12 @@ D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva
 D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva\evaluation\service\EvaluationServiceImpl.java
 D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva\evaluation\service\ScoreCalculationService.java
 D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva\exam\controller\ExamController.java
+D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva\exam\controller\ExamSessionController.java
+D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva\exam\dto\request\CreateExamSessionRequest.java
 D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva\exam\dto\request\ExamRequest.java
+D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva\exam\dto\request\UpdateExamSessionRequest.java
 D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva\exam\dto\response\ExamResponse.java
+D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva\exam\dto\response\ExamSessionResponse.java
 D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva\exam\entity\Exam.java
 D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva\exam\entity\ExamParticipant.java
 D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva\exam\entity\ExamQuestion.java
@@ -57,6 +61,7 @@ D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva
 D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva\exam\service\ExamService.java
 D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva\exam\service\ExamServiceImpl.java
 D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva\exam\service\ExamSessionService.java
+D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva\exam\service\ExamSessionServiceImpl.java
 D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva\interview\ai\followup\FollowUpQuestionProviderAdapter.java
 D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva\interview\ai\llm\LlmProviderAdapter.java
 D:\study\swd\SWD392_GROUP_5_FA_26_SE1929_BACKEND\src\main\java\com\swd392\aiviva\interview\ai\stt\SpeechToTextProviderAdapter.java
