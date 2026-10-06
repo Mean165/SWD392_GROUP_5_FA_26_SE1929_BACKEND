@@ -1,9 +1,11 @@
 package com.swd392.aiviva.exam.controller;
 
 import com.swd392.aiviva.common.response.ApiResponse;
+import com.swd392.aiviva.exam.dto.request.AssignStudentSessionRequest;
 import com.swd392.aiviva.exam.dto.request.CreateExamSessionRequest;
 import com.swd392.aiviva.exam.dto.request.UpdateExamSessionRequest;
 import com.swd392.aiviva.exam.dto.response.ExamSessionResponse;
+import com.swd392.aiviva.exam.dto.response.StudentSessionAssignmentResponse;
 import com.swd392.aiviva.exam.service.ExamSessionService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -55,5 +57,31 @@ public class ExamSessionController {
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ExamSessionResponse>> getExamSessionById(@PathVariable("id") UUID id) {
         return ResponseEntity.ok(ApiResponse.success("Exam session retrieved successfully", examSessionService.getExamSessionById(id)));
+    }
+
+    @PostMapping("/assign-student")
+    @PreAuthorize("hasAnyRole('AD', 'LE')")
+    public ResponseEntity<ApiResponse<StudentSessionAssignmentResponse>> assignStudent(
+            @Valid @RequestBody AssignStudentSessionRequest request) {
+        StudentSessionAssignmentResponse response = examSessionService.assignStudentToSession(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Student assigned to exam session successfully", response));
+    }
+
+    @PostMapping("/{sessionId}/assign-student")
+    @PreAuthorize("hasAnyRole('AD', 'LE')")
+    public ResponseEntity<ApiResponse<StudentSessionAssignmentResponse>> assignStudentToSession(
+            @PathVariable("sessionId") UUID sessionId,
+            @Valid @RequestBody AssignStudentSessionRequest request) {
+        StudentSessionAssignmentResponse response = examSessionService.assignStudentToSession(sessionId, request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Student assigned to exam session successfully", response));
+    }
+
+    @GetMapping("/{sessionId}/students")
+    public ResponseEntity<ApiResponse<List<StudentSessionAssignmentResponse>>> getStudentsBySessionId(
+            @PathVariable("sessionId") UUID sessionId) {
+        return ResponseEntity.ok(ApiResponse.success("Assigned students retrieved successfully",
+                examSessionService.getAssignmentsBySessionId(sessionId)));
     }
 }

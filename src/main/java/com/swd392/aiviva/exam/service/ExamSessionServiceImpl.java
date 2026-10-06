@@ -2,11 +2,15 @@ package com.swd392.aiviva.exam.service;
 
 import com.swd392.aiviva.common.exception.BusinessException;
 import com.swd392.aiviva.common.exception.ResourceNotFoundException;
+import com.swd392.aiviva.exam.dto.request.AssignStudentSessionRequest;
 import com.swd392.aiviva.exam.dto.request.CreateExamSessionRequest;
 import com.swd392.aiviva.exam.dto.request.UpdateExamSessionRequest;
 import com.swd392.aiviva.exam.dto.response.ExamSessionResponse;
+import com.swd392.aiviva.exam.dto.response.StudentSessionAssignmentResponse;
 import com.swd392.aiviva.exam.entity.ExamSession;
+import com.swd392.aiviva.exam.entity.StudentSessionAssignment;
 import com.swd392.aiviva.exam.repository.ExamSessionRepository;
+import com.swd392.aiviva.exam.repository.StudentSessionAssignmentRepository;
 import com.swd392.aiviva.user.entity.AppUser;
 import com.swd392.aiviva.user.repository.UserRepository;
 import java.time.OffsetDateTime;
@@ -22,11 +26,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class ExamSessionServiceImpl implements ExamSessionService {
 
     private final ExamSessionRepository examSessionRepository;
+    private final StudentSessionAssignmentRepository studentSessionAssignmentRepository;
     private final UserRepository userRepository;
 
     public ExamSessionServiceImpl(ExamSessionRepository examSessionRepository,
+                                   StudentSessionAssignmentRepository studentSessionAssignmentRepository,
                                    UserRepository userRepository) {
         this.examSessionRepository = examSessionRepository;
+        this.studentSessionAssignmentRepository = studentSessionAssignmentRepository;
         this.userRepository = userRepository;
     }
 
@@ -120,6 +127,72 @@ public class ExamSessionServiceImpl implements ExamSessionService {
         return mapToResponse(examSession);
     }
 
+    @Override
+    @Transactional
+    public StudentSessionAssignmentResponse assignStudentToSession(AssignStudentSessionRequest request) {
+        if (request.getSessionId() == null) {
+            throw new BusinessException("Session ID is required");
+        }
+        return assignStudentToSession(request.getSessionId(), request);
+    }
+
+    @Override
+    @Transactional
+    public StudentSessionAssignmentResponse assignStudentToSession(UUID sessionId, AssignStudentSessionRequest request) {
+        AppUser currentUser = getAuthenticatedUser();
+        validateAdminOrLecturer(currentUser);
+
+        ExamSession examSession = examSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Exam session not found with id: " + sessionId));
+
+        String roleCode = currentUser.getRole() != null ? currentUser.getRole().getRoleCode() : "";
+        if ("LE".equalsIgnoreCase(roleCode) && examSession.getCreatedBy() != null
+                && !examSession.getCreatedBy().getUserId().equals(currentUser.getUserId())) {
+            throw new AccessDeniedException("Lecturers can only assign students to exam sessions they created");
+        }
+
+        if (request.getStudentCode() == null || request.getStudentCode().trim().isBlank()) {
+            throw new BusinessException("Student code is required");
+        }
+
+        AppUser student = userRepository.findByStudentOrStaffCode(request.getStudentCode().trim())
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found with code: " + request.getStudentCode().trim()));
+
+        if (Boolean.FALSE.equals(student.getIsActive())) {
+            throw new BusinessException("Student account with code " + request.getStudentCode() + " is inactive");
+        }
+
+        if (studentSessionAssignmentRepository.existsByExamSessionSessionIdAndStudentUserId(sessionId, student.getUserId())) {
+            throw new BusinessException("Student " + request.getStudentCode() + " is already assigned to this exam session");
+        }
+
+        OffsetDateTime scheduledTime = request.getScheduledTime() != null
+                ? request.getScheduledTime()
+                : (examSession.getStartTime() != null ? examSession.getStartTime() : OffsetDateTime.now());
+
+        String status = (request.getStatus() != null && !request.getStatus().isBlank())
+                ? request.getStatus().trim().toUpperCase()
+                : "SCHEDULED";
+
+        StudentSessionAssignment assignment = StudentSessionAssignment.builder()
+                .examSession(examSession)
+                .student(student)
+                .scheduledTime(scheduledTime)
+                .status(status)
+                .build();
+
+        StudentSessionAssignment saved = studentSessionAssignmentRepository.save(assignment);
+        return mapToAssignmentResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<StudentSessionAssignmentResponse> getAssignmentsBySessionId(UUID sessionId) {
+        return studentSessionAssignmentRepository.findByExamSessionSessionId(sessionId).stream()
+                .map(this::mapToAssignmentResponse)
+                .toList();
+    }
+
     private AppUser getAuthenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
@@ -151,6 +224,20 @@ public class ExamSessionServiceImpl implements ExamSessionService {
                 .status(session.getStatus())
                 .startTime(session.getStartTime())
                 .createdAt(session.getCreatedAt())
+                .build();
+    }
+
+    private StudentSessionAssignmentResponse mapToAssignmentResponse(StudentSessionAssignment assignment) {
+        return StudentSessionAssignmentResponse.builder()
+                .assignmentId(assignment.getAssignmentId())
+                .sessionId(assignment.getExamSession() != null ? assignment.getExamSession().getSessionId() : null)
+                .sessionName(assignment.getExamSession() != null ? assignment.getExamSession().getSessionName() : null)
+                .studentId(assignment.getStudent() != null ? assignment.getStudent().getUserId() : null)
+                .studentCode(assignment.getStudent() != null ? assignment.getStudent().getStudentOrStaffCode() : null)
+                .studentName(assignment.getStudent() != null ? assignment.getStudent().getFullName() : null)
+                .studentEmail(assignment.getStudent() != null ? assignment.getStudent().getEmail() : null)
+                .scheduledTime(assignment.getScheduledTime())
+                .status(assignment.getStatus())
                 .build();
     }
 }

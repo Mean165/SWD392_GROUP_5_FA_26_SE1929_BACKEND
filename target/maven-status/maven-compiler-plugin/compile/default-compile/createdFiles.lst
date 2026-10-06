@@ -19,6 +19,7 @@ com\swd392\aiviva\user\entity\AppUser$AppUserBuilder.class
 com\swd392\aiviva\common\response\PageResponse$PageResponseBuilder.class
 com\swd392\aiviva\exam\controller\ExamController.class
 com\swd392\aiviva\exam\service\ExamSessionServiceImpl.class
+com\swd392\aiviva\exam\entity\StudentSessionAssignment$StudentSessionAssignmentBuilder.class
 com\swd392\aiviva\system\controller\SystemController.class
 com\swd392\aiviva\user\dto\request\CreateUserRequest$CreateUserRequestBuilder.class
 com\swd392\aiviva\interview\entity\InterviewQuestion.class
@@ -28,6 +29,7 @@ com\swd392\aiviva\system\entity\SystemConfiguration.class
 com\swd392\aiviva\exam\dto\response\ExamResponse.class
 com\swd392\aiviva\interview\ai\tts\TextToSpeechProviderAdapter.class
 com\swd392\aiviva\interview\service\SpeechToTextService.class
+com\swd392\aiviva\exam\repository\StudentSessionAssignmentRepository.class
 com\swd392\aiviva\report\controller\StudentReportController.class
 com\swd392\aiviva\user\dto\request\UserFilterRequest$UserFilterRequestBuilder.class
 com\swd392\aiviva\common\security\JwtAuthenticationFilter.class
@@ -39,6 +41,7 @@ com\swd392\aiviva\user\dto\request\UpdateUserRequest$UpdateUserRequestBuilder.cl
 com\swd392\aiviva\auth\service\AuthService.class
 com\swd392\aiviva\question\controller\RubricController.class
 com\swd392\aiviva\question\entity\RubricCriterion.class
+com\swd392\aiviva\exam\dto\request\AssignStudentSessionRequest.class
 com\swd392\aiviva\interview\service\AnswerAnalysisService.class
 com\swd392\aiviva\report\service\ScoreStatisticsService.class
 com\swd392\aiviva\report\controller\LecturerReportController.class
@@ -66,11 +69,13 @@ com\swd392\aiviva\user\dto\response\RoleResponse$RoleResponseBuilder.class
 com\swd392\aiviva\auth\dto\request\RefreshTokenRequest.class
 com\swd392\aiviva\evaluation\service\AIScoringService.class
 com\swd392\aiviva\interview\entity\Transcript.class
+com\swd392\aiviva\exam\entity\StudentSessionAssignment.class
 com\swd392\aiviva\report\dto\response\StudentExamReportResponse.class
 com\swd392\aiviva\interview\entity\FollowUpQuestion.class
 com\swd392\aiviva\evaluation\dto\request\EvaluationRequest.class
 com\swd392\aiviva\evaluation\service\EvaluationService.class
 com\swd392\aiviva\question\dto\response\RubricResponse.class
+com\swd392\aiviva\exam\dto\response\StudentSessionAssignmentResponse$StudentSessionAssignmentResponseBuilder.class
 com\swd392\aiviva\question\entity\Rubric.class
 com\swd392\aiviva\interview\dto\response\InterviewResponse.class
 com\swd392\aiviva\exam\service\ExamServiceImpl.class
@@ -125,6 +130,7 @@ com\swd392\aiviva\question\service\RubricServiceImpl.class
 com\swd392\aiviva\common\validation\ValidationGroups$Update.class
 com\swd392\aiviva\common\response\PageResponse.class
 com\swd392\aiviva\common\exception\BusinessException.class
+com\swd392\aiviva\exam\dto\request\AssignStudentSessionRequest$AssignStudentSessionRequestBuilder.class
 com\swd392\aiviva\interview\service\SpeechToTextServiceImpl.class
 com\swd392\aiviva\user\controller\UserController.class
 com\swd392\aiviva\question\entity\Question.class
@@ -161,6 +167,7 @@ com\swd392\aiviva\exam\enums\QuestionSelectionStrategyType.class
 com\swd392\aiviva\user\service\UserServiceImpl.class
 com\swd392\aiviva\exam\dto\request\CreateExamSessionRequest.class
 com\swd392\aiviva\question\controller\QuestionController.class
+com\swd392\aiviva\exam\dto\response\StudentSessionAssignmentResponse.class
 com\swd392\aiviva\evaluation\dto\response\EvaluationResponse.class
 com\swd392\aiviva\evaluation\service\EvaluationServiceImpl.class
 com\swd392\aiviva\evaluation\entity\Evaluation.class
