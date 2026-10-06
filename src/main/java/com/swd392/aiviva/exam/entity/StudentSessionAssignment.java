@@ -1,4 +1,4 @@
-package com.swd392.aiviva.question.entity;
+package com.swd392.aiviva.exam.entity;
 
 import com.swd392.aiviva.user.entity.AppUser;
 import jakarta.persistence.Column;
@@ -25,34 +25,33 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "question")
-public class Question implements Serializable {
+@Table(name = "student_session_assignment")
+public class StudentSessionAssignment implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "question_id", nullable = false)
-    private UUID questionId;
+    @Column(name = "assignment_id", nullable = false, updatable = false)
+    private UUID assignmentId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "topic_id", nullable = false)
-    private SubjectTopic topic;
+    @JoinColumn(name = "session_id", nullable = false)
+    private ExamSession examSession;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by", nullable = false)
-    private AppUser createdBy;
+    @JoinColumn(name = "student_id", nullable = false)
+    private AppUser student;
 
-    @Column(name = "question_text", columnDefinition = "TEXT", nullable = false)
-    private String questionText;
+    @Column(name = "scheduled_time", nullable = false)
+    private OffsetDateTime scheduledTime;
 
-    @Column(name = "bloom_level", nullable = false)
-    private String bloomLevel;
+    @Column(name = "status", nullable = false)
+    private String status;
 
-    @Column(name = "source_type", nullable = false)
-    private String sourceType;
+    public ExamSession getSession() {
+        return examSession;
+    }
 
-    @Column(name = "approval_status", nullable = false)
-    private String approvalStatus;
-
-    @Column(name = "created_at")
-    private OffsetDateTime createdAt;
+    public void setSession(ExamSession session) {
+        this.examSession = session;
+    }
 }

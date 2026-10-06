@@ -11,15 +11,15 @@ public class QuestionMapper {
         if (question == null) {
             return null;
         }
-        return new QuestionResponse(
-                question.getId(),
-                question.getContent(),
-                question.getBloomLevel(),
-                question.getStatus(),
-                question.getSource(),
-                question.getSubjectCode(),
-                question.getTopicCode()
-        );
+        return QuestionResponse.builder()
+                .questionId(question.getQuestionId())
+                .topicId(question.getTopic() != null ? question.getTopic().getTopicId() : null)
+                .createdBy(question.getCreatedBy() != null ? question.getCreatedBy().getUserId() : null)
+                .questionText(question.getQuestionText())
+                .bloomLevel(question.getBloomLevel())
+                .sourceType(question.getSourceType())
+                .approvalStatus(question.getApprovalStatus())
+                .createdAt(question.getCreatedAt())
+                .build();
     }
 }
-

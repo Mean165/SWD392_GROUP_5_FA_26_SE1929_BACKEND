@@ -1,6 +1,5 @@
 package com.swd392.aiviva.question.entity;
 
-import com.swd392.aiviva.user.entity.AppUser;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -25,34 +24,27 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "question")
-public class Question implements Serializable {
+@Table(name = "topic_material")
+public class TopicMaterial implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "question_id", nullable = false)
-    private UUID questionId;
+    @Column(name = "material_id", nullable = false)
+    private UUID materialId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "topic_id", nullable = false)
     private SubjectTopic topic;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by", nullable = false)
-    private AppUser createdBy;
+    @Column(name = "title", nullable = false)
+    private String title;
 
-    @Column(name = "question_text", columnDefinition = "TEXT", nullable = false)
-    private String questionText;
+    @Column(name = "file_url", nullable = false)
+    private String fileUrl;
 
-    @Column(name = "bloom_level", nullable = false)
-    private String bloomLevel;
+    @Column(name = "is_indexed", nullable = false)
+    private Boolean isIndexed;
 
-    @Column(name = "source_type", nullable = false)
-    private String sourceType;
-
-    @Column(name = "approval_status", nullable = false)
-    private String approvalStatus;
-
-    @Column(name = "created_at")
-    private OffsetDateTime createdAt;
+    @Column(name = "uploaded_at")
+    private OffsetDateTime uploadedAt;
 }

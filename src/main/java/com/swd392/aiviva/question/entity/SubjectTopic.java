@@ -25,33 +25,26 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "question")
-public class Question implements Serializable {
+@Table(name = "subject_topic")
+public class SubjectTopic implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "question_id", nullable = false)
-    private UUID questionId;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "topic_id", nullable = false)
-    private SubjectTopic topic;
+    @Column(name = "topic_id", nullable = false)
+    private UUID topicId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private AppUser createdBy;
 
-    @Column(name = "question_text", columnDefinition = "TEXT", nullable = false)
-    private String questionText;
+    @Column(name = "topic_code", unique = true, nullable = false)
+    private String topicCode;
 
-    @Column(name = "bloom_level", nullable = false)
-    private String bloomLevel;
+    @Column(name = "topic_name", nullable = false)
+    private String topicName;
 
-    @Column(name = "source_type", nullable = false)
-    private String sourceType;
-
-    @Column(name = "approval_status", nullable = false)
-    private String approvalStatus;
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
 
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
