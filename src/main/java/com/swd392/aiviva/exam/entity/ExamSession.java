@@ -30,7 +30,7 @@ public class ExamSession implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "session_id", nullable = false)
+    @Column(name = "session_id", nullable = false, updatable = false)
     private UUID sessionId;
 
     @ManyToOne(fetch = FetchType.LAZY)

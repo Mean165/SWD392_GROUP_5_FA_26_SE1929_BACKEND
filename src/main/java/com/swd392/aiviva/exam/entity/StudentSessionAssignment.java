@@ -30,12 +30,12 @@ public class StudentSessionAssignment implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "assignment_id", nullable = false)
+    @Column(name = "assignment_id", nullable = false, updatable = false)
     private UUID assignmentId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "session_id", nullable = false)
-    private ExamSession session;
+    private ExamSession examSession;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "student_id", nullable = false)
@@ -46,4 +46,12 @@ public class StudentSessionAssignment implements Serializable {
 
     @Column(name = "status", nullable = false)
     private String status;
+
+    public ExamSession getSession() {
+        return examSession;
+    }
+
+    public void setSession(ExamSession session) {
+        this.examSession = session;
+    }
 }

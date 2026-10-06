@@ -178,7 +178,7 @@ public class UserServiceImpl implements UserService {
 
     private String generateNextStudentOrStaffCode(String roleCode) {
         String prefix = (roleCode != null && !roleCode.isBlank()) ? roleCode.toUpperCase() : "ST";
-        long sequence = userRepository.count() + 1;
+        long sequence = 1;
         String candidateCode = prefix + sequence;
 
         while (userRepository.existsByStudentOrStaffCode(candidateCode)) {
