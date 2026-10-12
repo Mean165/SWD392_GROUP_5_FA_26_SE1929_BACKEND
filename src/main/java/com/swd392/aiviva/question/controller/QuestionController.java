@@ -54,4 +54,11 @@ public class QuestionController {
         questionService.deleteQuestion(id);
         return ResponseEntity.ok(ApiResponse.success("Question deleted successfully", null));
     }
+
+    @PostMapping(value = "/import", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<List<QuestionResponse>>> importQuestions(
+            @org.springframework.web.bind.annotation.RequestParam("topicId") UUID topicId,
+            @org.springframework.web.bind.annotation.RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        return ResponseEntity.ok(ApiResponse.success("Questions imported successfully", questionService.importQuestions(topicId, file)));
+    }
 }

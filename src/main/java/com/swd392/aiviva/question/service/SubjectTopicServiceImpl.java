@@ -57,4 +57,12 @@ public class SubjectTopicServiceImpl implements SubjectTopicService {
                 .orElseThrow(() -> new BusinessException("Topic not found"));
         return topicMapper.toResponse(topic);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.List<SubjectTopicResponse> getAllTopics() {
+        return topicRepository.findAll().stream()
+                .map(topicMapper::toResponse)
+                .toList();
+    }
 }

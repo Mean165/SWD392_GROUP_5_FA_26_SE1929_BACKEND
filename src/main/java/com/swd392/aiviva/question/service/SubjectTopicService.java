@@ -7,4 +7,5 @@ import java.util.UUID;
 public interface SubjectTopicService {
     SubjectTopicResponse createTopic(CreateSubjectTopicRequest request, String userEmail);
     SubjectTopicResponse getTopicById(UUID topicId);
+    java.util.List<SubjectTopicResponse> getAllTopics();
 }

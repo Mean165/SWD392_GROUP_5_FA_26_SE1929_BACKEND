@@ -43,4 +43,9 @@ public class SubjectTopicController {
         SubjectTopicResponse response = topicService.getTopicById(topicId);
         return ResponseEntity.ok(ApiResponse.success("Topic retrieved successfully", response));
     }
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<java.util.List<SubjectTopicResponse>>> getAllTopics() {
+        return ResponseEntity.ok(ApiResponse.success("Topics retrieved successfully", topicService.getAllTopics()));
+    }
 }

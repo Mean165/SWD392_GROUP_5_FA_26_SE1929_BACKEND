@@ -2,6 +2,7 @@ package com.swd392.aiviva.question.service;
 
 import com.swd392.aiviva.common.exception.BusinessException;
 import com.swd392.aiviva.common.exception.ResourceNotFoundException;
+import com.swd392.aiviva.question.ai.QuestionGenerationService;
 import com.swd392.aiviva.question.dto.request.CreateQuestionRequest;
 import com.swd392.aiviva.question.dto.request.QuestionGenerationRequest;
 import com.swd392.aiviva.question.dto.response.QuestionResponse;
@@ -30,15 +31,18 @@ public class QuestionServiceImpl implements QuestionService {
     private final SubjectTopicRepository subjectTopicRepository;
     private final UserRepository userRepository;
     private final QuestionMapper questionMapper;
+    private final QuestionGenerationService questionGenerationService;
 
     public QuestionServiceImpl(QuestionRepository questionRepository,
                                SubjectTopicRepository subjectTopicRepository,
                                UserRepository userRepository,
-                               QuestionMapper questionMapper) {
+                               QuestionMapper questionMapper,
+                               QuestionGenerationService questionGenerationService) {
         this.questionRepository = questionRepository;
         this.subjectTopicRepository = subjectTopicRepository;
         this.userRepository = userRepository;
         this.questionMapper = questionMapper;
+        this.questionGenerationService = questionGenerationService;
     }
 
     @Override
@@ -120,8 +124,41 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Override
     public QuestionResponse generateQuestion(QuestionGenerationRequest request) {
-        // TODO: Integrate with AI generation service.
-        return null;
+        String generatedQuestion = questionGenerationService.generateQuestionText(request.getPrompt());
+
+        SubjectTopic topic = null;
+        if (request.getTopicCode() != null && !request.getTopicCode().isBlank()) {
+            topic = subjectTopicRepository.findByTopicCode(request.getTopicCode()).orElse(null);
+        }
+
+        AppUser creator = null;
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated() && !"anonymousUser".equals(authentication.getPrincipal())) {
+            creator = userRepository.findByEmail(authentication.getName()).orElse(null);
+        }
+
+        if (topic != null && creator != null) {
+            Question question = Question.builder()
+                    .topic(topic)
+                    .createdBy(creator)
+                    .questionText(generatedQuestion)
+                    .bloomLevel(BloomLevel.ANALYZE.name())
+                    .sourceType(QuestionSource.AI_GENERATED.name())
+                    .approvalStatus(QuestionStatus.PENDING_REVIEW.name())
+                    .createdAt(OffsetDateTime.now())
+                    .build();
+
+            Question saved = questionRepository.save(question);
+            return questionMapper.toResponse(saved);
+        }
+
+        return QuestionResponse.builder()
+                .questionText(generatedQuestion)
+                .bloomLevel(BloomLevel.ANALYZE.name())
+                .sourceType(QuestionSource.AI_GENERATED.name())
+                .approvalStatus(QuestionStatus.DRAFT.name())
+                .createdAt(OffsetDateTime.now())
+                .build();
     }
 
     @Override
@@ -129,5 +166,54 @@ public class QuestionServiceImpl implements QuestionService {
         Question question = questionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Question not found with id: " + id));
         questionRepository.delete(question);
+    }
+    @Override
+    @Transactional
+    public List<QuestionResponse> importQuestions(UUID topicId, org.springframework.web.multipart.MultipartFile file) {
+        SubjectTopic topic = subjectTopicRepository.findById(topicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Subject topic not found with id: " + topicId));
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        AppUser creator = null;
+        if (authentication != null && authentication.isAuthenticated() && !"anonymousUser".equals(authentication.getPrincipal())) {
+            String email = authentication.getName();
+            creator = userRepository.findByEmail(email).orElse(null);
+        }
+
+        if (creator == null) {
+            throw new BusinessException("Created by user is required (authenticate first)");
+        }
+
+        List<FileImportHelper.QuestionImportDto> importedData = FileImportHelper.parseFile(file);
+        
+        List<Question> questionsToSave = new java.util.ArrayList<>();
+        for (FileImportHelper.QuestionImportDto dto : importedData) {
+            String bloomLevel = BloomLevel.REMEMBER.name();
+            if (dto.bloomLevel != null && !dto.bloomLevel.isBlank()) {
+                try {
+                    bloomLevel = BloomLevel.valueOf(dto.bloomLevel.trim().toUpperCase()).name();
+                } catch (IllegalArgumentException e) {
+                    // Ignore and use default
+                }
+            }
+
+            Question question = Question.builder()
+                    .topic(topic)
+                    .createdBy(creator)
+                    .questionText(dto.questionText.trim())
+                    .bloomLevel(bloomLevel)
+                    .sourceType(QuestionSource.IMPORTED.name())
+                    .approvalStatus(QuestionStatus.APPROVED.name())
+                    .createdAt(OffsetDateTime.now())
+                    .build();
+                    
+            questionsToSave.add(question);
+        }
+
+        List<Question> savedQuestions = questionRepository.saveAll(questionsToSave);
+        
+        return savedQuestions.stream()
+                .map(questionMapper::toResponse)
+                .toList();
     }
 }

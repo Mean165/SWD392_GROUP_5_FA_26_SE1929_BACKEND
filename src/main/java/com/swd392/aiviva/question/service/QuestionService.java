@@ -17,4 +17,6 @@ public interface QuestionService {
     QuestionResponse generateQuestion(QuestionGenerationRequest request);
 
     void deleteQuestion(UUID id);
+
+    List<QuestionResponse> importQuestions(UUID topicId, org.springframework.web.multipart.MultipartFile file);
 }
