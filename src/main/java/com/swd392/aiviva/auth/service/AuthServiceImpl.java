@@ -52,17 +52,26 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException("Email already registered: " + email);
         }
 
-        Role role = roleRepository.findByRoleCode("ST")
-                .orElseGet(() -> roleRepository.findById(DEFAULT_STUDENT_ROLE_ID)
-                        .orElseGet(() -> roleRepository.save(
-                                Role.builder()
-                                        .roleId(DEFAULT_STUDENT_ROLE_ID)
-                                        .roleCode("ST")
-                                        .roleName("Student")
-                                        .description("Student role")
-                                        .createdAt(OffsetDateTime.now())
-                                        .build()
-                        )));
+        String targetRoleCode = (request.getRoleCode() != null && !request.getRoleCode().trim().isBlank())
+                ? request.getRoleCode().trim().toUpperCase() 
+                : "ST";
+
+        Role role = roleRepository.findByRoleCode(targetRoleCode)
+                .orElseGet(() -> {
+                    if ("ST".equals(targetRoleCode)) {
+                        return roleRepository.findById(DEFAULT_STUDENT_ROLE_ID)
+                                .orElseGet(() -> roleRepository.save(
+                                        Role.builder()
+                                                .roleId(DEFAULT_STUDENT_ROLE_ID)
+                                                .roleCode("ST")
+                                                .roleName("Student")
+                                                .description("Student role")
+                                                .createdAt(OffsetDateTime.now())
+                                                .build()
+                                ));
+                    }
+                    throw new BusinessException("Role not found: " + targetRoleCode);
+                });
 
         String studentCode = request.getStudentOrStaffCode();
         if (studentCode != null && !studentCode.trim().isBlank()) {
