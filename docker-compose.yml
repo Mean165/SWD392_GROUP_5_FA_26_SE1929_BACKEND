@@ -14,7 +14,6 @@ services:
       - "5433:5432"  # Map port 5432 chuẩn của Postgres ra port 5433 máy thật để tránh trùng cổng cục bộ
     volumes:
       - pg_data:/var/lib/postgresql/data
-      # Tự động chạy file tạo bảng và chèn data khi container khởi động lần đầu
       - ./src/main/resources/schema.sql:/docker-entrypoint-initdb.d/1-schema.sql
       - ./src/main/resources/data.sql:/docker-entrypoint-initdb.d/2-data.sql
 
