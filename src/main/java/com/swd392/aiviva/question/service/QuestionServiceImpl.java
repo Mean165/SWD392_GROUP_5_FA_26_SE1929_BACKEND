@@ -53,6 +53,16 @@ public class QuestionServiceImpl implements QuestionService {
     }
 
     @Override
+    public List<QuestionResponse> getQuestionsByTopicId(UUID topicId) {
+        if (!subjectTopicRepository.existsById(topicId)) {
+            throw new ResourceNotFoundException("Subject topic not found with id: " + topicId);
+        }
+        return questionRepository.findByTopic_TopicId(topicId).stream()
+                .map(questionMapper::toResponse)
+                .toList();
+    }
+
+    @Override
     public QuestionResponse getQuestionById(UUID id) {
         return questionRepository.findById(id)
                 .map(questionMapper::toResponse)

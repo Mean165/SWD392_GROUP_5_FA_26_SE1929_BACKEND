@@ -10,6 +10,8 @@ public interface QuestionService {
 
     List<QuestionResponse> getQuestions();
 
+    List<QuestionResponse> getQuestionsByTopicId(UUID topicId);
+
     QuestionResponse getQuestionById(UUID id);
 
     QuestionResponse createQuestion(CreateQuestionRequest request);
