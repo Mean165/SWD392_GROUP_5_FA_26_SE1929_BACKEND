@@ -1,12 +1,14 @@
 package com.swd392.aiviva.question.controller;
 
 import com.swd392.aiviva.common.response.ApiResponse;
+import com.swd392.aiviva.question.dto.request.CreateQuestionRequest;
 import com.swd392.aiviva.question.dto.request.QuestionGenerationRequest;
 import com.swd392.aiviva.question.dto.response.QuestionResponse;
 import com.swd392.aiviva.question.service.QuestionService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,6 +26,12 @@ public class QuestionController {
 
     public QuestionController(QuestionService questionService) {
         this.questionService = questionService;
+    }
+
+    @PostMapping
+    public ResponseEntity<ApiResponse<QuestionResponse>> createQuestion(@Valid @RequestBody CreateQuestionRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Question created successfully", questionService.createQuestion(request)));
     }
 
     @GetMapping
@@ -45,5 +53,12 @@ public class QuestionController {
     public ResponseEntity<ApiResponse<Void>> deleteQuestion(@PathVariable UUID id) {
         questionService.deleteQuestion(id);
         return ResponseEntity.ok(ApiResponse.success("Question deleted successfully", null));
+    }
+
+    @PostMapping(value = "/import", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<List<QuestionResponse>>> importQuestions(
+            @org.springframework.web.bind.annotation.RequestParam("topicId") UUID topicId,
+            @org.springframework.web.bind.annotation.RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        return ResponseEntity.ok(ApiResponse.success("Questions imported successfully", questionService.importQuestions(topicId, file)));
     }
 }

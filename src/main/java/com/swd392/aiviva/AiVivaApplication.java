@@ -10,4 +10,3 @@ public class AiVivaApplication {
         SpringApplication.run(AiVivaApplication.class, args);
     }
 }
-
