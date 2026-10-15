@@ -17,11 +17,11 @@ INSERT INTO role (role_id, role_code, role_name, description) VALUES
 INSERT INTO app_user
 (user_id, role_id, full_name, email, password_hash, student_or_staff_code, preferred_language)
 VALUES
-('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','Quản trị viên hệ thống','admin@aiviva.local','REPLACE_WITH_BCRYPT_HASH','ADM001','vi'),
-('20000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000002','Nguyễn Minh Anh','anh.nguyen@aiviva.local','REPLACE_WITH_BCRYPT_HASH','GV001','vi'),
-('20000000-0000-0000-0000-000000000003','10000000-0000-0000-0000-000000000003','Trần Văn Bình','binh.tran@aiviva.local','REPLACE_WITH_BCRYPT_HASH','SV001','vi'),
-('20000000-0000-0000-0000-000000000004','10000000-0000-0000-0000-000000000003','Lê Thị Chi','chi.le@aiviva.local','REPLACE_WITH_BCRYPT_HASH','SV002','vi'),
-('20000000-0000-0000-0000-000000000005','10000000-0000-0000-0000-000000000003','Phạm Quốc Dũng','dung.pham@aiviva.local','REPLACE_WITH_BCRYPT_HASH','SV003','en');
+('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','Quản trị viên hệ thống','admin@aiviva.local','$2a$10$7clppnCzRAHln6wQnhBOruC3RoHZa022OjHafdqoHhr6LCbEqdkFa','ADM001','vi'), --password: Admin123@
+('20000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000002','Nguyễn Minh Anh','anh.nguyen@aiviva.local','$2a$10$w5Qft4vA8BKOtyuI0dfzHuVgUh/oIeAdSZcgz2nPai4rvGJFaLTWu','GV001','vi'),    --pasword: Sale123@
+('20000000-0000-0000-0000-000000000003','10000000-0000-0000-0000-000000000003','Trần Văn Bình','binh.tran@aiviva.local','$2a$10$dgyzLBvwjb7JVHn6ziFLtuTfKn.6awWC98Pld34sqP.lcOhIo1rXC','SV001','vi'),     --password: Customer123@
+('20000000-0000-0000-0000-000000000004','10000000-0000-0000-0000-000000000003','Lê Thị Chi','chi.le@aiviva.local','$2a$10$dgyzLBvwjb7JVHn6ziFLtuTfKn.6awWC98Pld34sqP.lcOhIo1rXC','SV002','vi'),           --password: Customer123@
+('20000000-0000-0000-0000-000000000005','10000000-0000-0000-0000-000000000003','Phạm Quốc Dũng','dung.pham@aiviva.local','$2a$10$dgyzLBvwjb7JVHn6ziFLtuTfKn.6awWC98Pld34sqP.lcOhIo1rXC','SV003','en');    --password: Customer123@
 
 INSERT INTO subject (subject_id, subject_code, subject_name, description) VALUES
 ('30000000-0000-0000-0000-000000000001','SWD392','Software Architecture','Kiến trúc phần mềm và thiết kế hệ thống');
