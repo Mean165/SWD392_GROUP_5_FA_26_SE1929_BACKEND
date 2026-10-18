@@ -1406,6 +1406,8 @@ Ví dụ:
 /api/system
 ```
 
+Hợp đồng các endpoint phỏng vấn sinh viên, audio, xác thực và giới hạn thời gian được mô tả tại [`docs/interview-api.md`](docs/interview-api.md).
+
 Ví dụ Question API:
 
 ```text

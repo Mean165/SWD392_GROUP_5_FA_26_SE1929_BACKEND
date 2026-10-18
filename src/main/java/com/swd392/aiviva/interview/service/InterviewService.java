@@ -20,5 +20,14 @@ public interface InterviewService {
 
     InterviewResponse completeInterview(UUID attemptId);
 
+    InterviewResponse completeInterview(UUID attemptId, String fullAudioDataUrl);
+
     byte[] getQuestionSpeechAudio(UUID turnId);
+
+    byte[] getQuestionSpeechAudio(UUID turnId, String language);
+
+    AudioFile getInterviewAudio(UUID attemptId, String filename);
+
+    record AudioFile(byte[] bytes, String contentType) {
+    }
 }

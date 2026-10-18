@@ -16,5 +16,4 @@ public class StartInterviewRequest {
     @NotNull(message = "Session id is required")
     private UUID sessionId;
 
-    private UUID studentId;
 }

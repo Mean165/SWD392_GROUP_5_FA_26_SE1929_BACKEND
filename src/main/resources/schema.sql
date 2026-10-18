@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS rubric_criteria (
 CREATE TABLE IF NOT EXISTS exam_session (
     session_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     created_by UUID NOT NULL,
+    topic_id UUID,
     session_name VARCHAR(255) NOT NULL,
     max_main_questions INT NOT NULL,
     max_followup_per_question INT NOT NULL,
@@ -83,8 +84,12 @@ CREATE TABLE IF NOT EXISTS exam_session (
     status VARCHAR(50) NOT NULL,
     start_time TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_exam_session_creator FOREIGN KEY (created_by) REFERENCES app_user(user_id) ON DELETE RESTRICT
+    CONSTRAINT fk_exam_session_creator FOREIGN KEY (created_by) REFERENCES app_user(user_id) ON DELETE RESTRICT,
+    CONSTRAINT fk_exam_session_topic FOREIGN KEY (topic_id) REFERENCES subject_topic(topic_id) ON DELETE RESTRICT
 );
+
+ALTER TABLE exam_session
+    ADD COLUMN IF NOT EXISTS topic_id UUID REFERENCES subject_topic(topic_id) ON DELETE RESTRICT;
 
 -- 8. Table student_session_assignment
 CREATE TABLE IF NOT EXISTS student_session_assignment (

@@ -16,4 +16,14 @@ public class TextToSpeechServiceImpl implements TextToSpeechService {
     public byte[] synthesize(String text) {
         return ttsProviderAdapter.synthesize(text);
     }
+
+    @Override
+    public byte[] synthesize(String text, String language) {
+        return ttsProviderAdapter.synthesize(text, language);
+    }
+
+    @Override
+    public byte[] synthesize(String text, String language, String responseFormat) {
+        return ttsProviderAdapter.synthesize(text, language, responseFormat);
+    }
 }

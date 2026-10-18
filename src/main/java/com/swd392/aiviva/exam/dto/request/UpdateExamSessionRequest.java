@@ -2,6 +2,7 @@ package com.swd392.aiviva.exam.dto.request;
 
 import jakarta.validation.constraints.Min;
 import java.time.OffsetDateTime;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,6 +15,8 @@ import lombok.NoArgsConstructor;
 public class UpdateExamSessionRequest {
 
     private String sessionName;
+
+    private UUID topicId;
 
     @Min(value = 1, message = "Max main questions must be at least 1")
     private Integer maxMainQuestions;

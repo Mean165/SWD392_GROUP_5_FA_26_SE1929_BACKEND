@@ -3,26 +3,28 @@
 -- Password hashes and URLs are placeholders for development/testing.
 BEGIN;
 INSERT INTO role (role_id, role_code, role_name, description, created_at) VALUES
-('a98fe388-aa64-5726-ac12-ddd93b182b38', 'AD', 'Administrator', 'Quản trị toàn bộ hệ thống', '''2026-10-15 09:00:00+07'''),
-('a5128fc0-8404-5615-9730-c25fd967cb2b', 'LE', 'Lecturer', 'Giảng viên tạo câu hỏi, tổ chức thi và chấm điểm', '''2026-10-15 09:00:00+07'''),
-('137c5498-ae32-57ea-9c11-e07b205713e8', 'ST', 'Student', 'Sinh viên tham gia thi vấn đáp', '''2026-10-15 09:00:00+07''');
+('a98fe388-aa64-5726-ac12-ddd93b182b38', 'AD', 'Administrator', 'Quản trị toàn bộ hệ thống', '2026-10-15 09:00:00+07'),
+('a5128fc0-8404-5615-9730-c25fd967cb2b', 'LE', 'Lecturer', 'Giảng viên tạo câu hỏi, tổ chức thi và chấm điểm', '2026-10-15 09:00:00+07'),
+('137c5498-ae32-57ea-9c11-e07b205713e8', 'ST', 'Student', 'Sinh viên tham gia thi vấn đáp', '2026-10-15 09:00:00+07')
+ON CONFLICT (role_id) DO NOTHING;
 
 INSERT INTO app_user (user_id, role_id, full_name, email, password_hash, student_or_staff_code, is_active, created_at) VALUES
-('e9f7230f-ccb4-582f-82d6-c636512ef431', 'a98fe388-aa64-5726-ac12-ddd93b182b38', 'Nguyễn Minh Quân', 'admin@aiviva.local', '$2a$10$7clppnCzRAHln6wQnhBOruC3RoHZa022OjHafdqoHhr6LCbEqdkFa', 'ADM001', TRUE, '''2026-10-14 09:00:00+07'''),   --password: Admin123@
-('4b15e443-cf48-5b71-8fd6-4e52809ffbd5', 'a5128fc0-8404-5615-9730-c25fd967cb2b', 'Trần Thị Lan', 'lecturer1@aiviva.local', '$2a$10$7clppnCzRAHln6wQnhBOruC3RoHZa022OjHafdqoHhr6LCbEqdkFa', 'LEC001', TRUE, '''2026-10-13 09:00:00+07'''),
-('7cdbf73b-3911-55d4-8dd8-52589f69c1ec', 'a5128fc0-8404-5615-9730-c25fd967cb2b', 'Nguyễn Hoàng Nam', 'lecturer2@aiviva.local', '$2a$10$7clppnCzRAHln6wQnhBOruC3RoHZa022OjHafdqoHhr6LCbEqdkFa', 'LEC002', TRUE, '''2026-10-12 09:00:00+07'''),
-('b668bf13-c75e-541a-8876-833968dfedca', 'a5128fc0-8404-5615-9730-c25fd967cb2b', 'Lê Thu Hà', 'lecturer3@aiviva.local', '$2a$10$7clppnCzRAHln6wQnhBOruC3RoHZa022OjHafdqoHhr6LCbEqdkFa', 'LEC003', TRUE, '''2026-10-11 09:00:00+07'''),
-('a251e76b-00f8-5a9b-b253-57d006c4e944', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Phạm Minh Anh', 'student1@aiviva.local', '$2a$10$7clppnCzRAHln6wQnhBOruC3RoHZa022OjHafdqoHhr6LCbEqdkFa', 'SE1929001', TRUE, '''2026-10-10 09:00:00+07'''),
-('b8f9c2ba-c796-5b21-9c3f-25f2caa2fd49', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Trần Quốc Bảo', 'student2@aiviva.local', '$2a$10$7clppnCzRAHln6wQnhBOruC3RoHZa022OjHafdqoHhr6LCbEqdkFa', 'SE1929002', TRUE, '''2026-10-09 09:00:00+07'''),
-('c041d64c-1d4a-5d1c-9a56-d6a9b47ce31e', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Nguyễn Khánh Linh', 'student3@aiviva.local', '$2a$10$7clppnCzRAHln6wQnhBOruC3RoHZa022OjHafdqoHhr6LCbEqdkFa', 'SE1929003', TRUE, '''2026-10-08 09:00:00+07'''),
-('aa2df232-dcce-5e97-b2de-b048eaf27715', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Lê Gia Huy', 'student4@aiviva.local', '$2a$10$7clppnCzRAHln6wQnhBOruC3RoHZa022OjHafdqoHhr6LCbEqdkFa', 'SE1929004', TRUE, '''2026-10-07 09:00:00+07'''),
-('efe2bb23-ca50-58c9-8fa0-deb73ac8681c', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Võ Ngọc Mai', 'student5@aiviva.local', '$2a$10$7clppnCzRAHln6wQnhBOruC3RoHZa022OjHafdqoHhr6LCbEqdkFa', 'SE1929005', TRUE, '''2026-10-06 09:00:00+07'''),
-('dbb4de06-5f95-5d59-b061-b93f126bd86c', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Đặng Tuấn Kiệt', 'student6@aiviva.local', '$2a$10$7clppnCzRAHln6wQnhBOruC3RoHZa022OjHafdqoHhr6LCbEqdkFa', 'SE1929006', TRUE, '''2026-10-05 09:00:00+07'''),
-('43fbc4af-2a3c-5a9e-8039-012cedf00931', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Phan Thảo Vy', 'student7@aiviva.local', '$2a$10$7clppnCzRAHln6wQnhBOruC3RoHZa022OjHafdqoHhr6LCbEqdkFa', 'SE1929007', TRUE, '''2026-10-04 09:00:00+07'''),
-('4446b76e-9bb3-52b5-80e5-3767a120130d', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Bùi Đức Anh', 'student8@aiviva.local', '$2a$10$7clppnCzRAHln6wQnhBOruC3RoHZa022OjHafdqoHhr6LCbEqdkFa', 'SE1929008', TRUE, '''2026-10-03 09:00:00+07'''),
-('801f81b1-c37b-5b7b-8fb1-e14fbd93a56b', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Hoàng Yến Nhi', 'student9@aiviva.local', '$2a$10$7clppnCzRAHln6wQnhBOruC3RoHZa022OjHafdqoHhr6LCbEqdkFa', 'SE1929009', TRUE, '''2026-10-02 09:00:00+07'''),
-('88cff15f-27fd-53d4-8404-308c01b256c1', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Đỗ Thành Đạt', 'student10@aiviva.local', '$2a$10$7clppnCzRAHln6wQnhBOruC3RoHZa022OjHafdqoHhr6LCbEqdkFa', 'SE1929010', FALSE, '''2026-10-01 09:00:00+07'''),
-('58090cf2-dd66-50d5-96ba-f7f5614ff592', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Mai Phương Thảo', 'student11@aiviva.local', '$2a$10$7clppnCzRAHln6wQnhBOruC3RoHZa022OjHafdqoHhr6LCbEqdkFa', 'SE1929011', TRUE, '''2026-09-3<PASSWORD>''');
+('e9f7230f-ccb4-582f-82d6-c636512ef431', 'a98fe388-aa64-5726-ac12-ddd93b182b38', 'Nguyễn Minh Quân', 'admin@aiviva.local', '$2a$10$lLMGR4giC/fanoTpqvPGLeLfWXCvBziZcAxACgl/a0fE4tBch6mKi', 'ADM001', TRUE, '2026-10-14 09:00:00+07'),   --password: Admin123@
+('4b15e443-cf48-5b71-8fd6-4e52809ffbd5', 'a5128fc0-8404-5615-9730-c25fd967cb2b', 'Trần Thị Lan', 'lecturer1@aiviva.local', '$2a$10$lLMGR4giC/fanoTpqvPGLeLfWXCvBziZcAxACgl/a0fE4tBch6mKi', 'LEC001', TRUE, '2026-10-13 09:00:00+07'),
+('7cdbf73b-3911-55d4-8dd8-52589f69c1ec', 'a5128fc0-8404-5615-9730-c25fd967cb2b', 'Nguyễn Hoàng Nam', 'lecturer2@aiviva.local', '$2a$10$lLMGR4giC/fanoTpqvPGLeLfWXCvBziZcAxACgl/a0fE4tBch6mKi', 'LEC002', TRUE, '2026-10-12 09:00:00+07'),
+('b668bf13-c75e-541a-8876-833968dfedca', 'a5128fc0-8404-5615-9730-c25fd967cb2b', 'Lê Thu Hà', 'lecturer3@aiviva.local', '$2a$10$lLMGR4giC/fanoTpqvPGLeLfWXCvBziZcAxACgl/a0fE4tBch6mKi', 'LEC003', TRUE, '2026-10-11 09:00:00+07'),
+('a251e76b-00f8-5a9b-b253-57d006c4e944', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Phạm Minh Anh', 'student1@aiviva.local', '$2a$10$lLMGR4giC/fanoTpqvPGLeLfWXCvBziZcAxACgl/a0fE4tBch6mKi', 'SE1929001', TRUE, '2026-10-10 09:00:00+07'),
+('b8f9c2ba-c796-5b21-9c3f-25f2caa2fd49', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Trần Quốc Bảo', 'student2@aiviva.local', '$2a$10$lLMGR4giC/fanoTpqvPGLeLfWXCvBziZcAxACgl/a0fE4tBch6mKi', 'SE1929002', TRUE, '2026-10-09 09:00:00+07'),
+('c041d64c-1d4a-5d1c-9a56-d6a9b47ce31e', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Nguyễn Khánh Linh', 'student3@aiviva.local', '$2a$10$lLMGR4giC/fanoTpqvPGLeLfWXCvBziZcAxACgl/a0fE4tBch6mKi', 'SE1929003', TRUE, '2026-10-08 09:00:00+07'),
+('aa2df232-dcce-5e97-b2de-b048eaf27715', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Lê Gia Huy', 'student4@aiviva.local', '$2a$10$lLMGR4giC/fanoTpqvPGLeLfWXCvBziZcAxACgl/a0fE4tBch6mKi', 'SE1929004', TRUE, '2026-10-07 09:00:00+07'),
+('efe2bb23-ca50-58c9-8fa0-deb73ac8681c', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Võ Ngọc Mai', 'student5@aiviva.local', '$2a$10$lLMGR4giC/fanoTpqvPGLeLfWXCvBziZcAxACgl/a0fE4tBch6mKi', 'SE1929005', TRUE, '2026-10-06 09:00:00+07'),
+('dbb4de06-5f95-5d59-b061-b93f126bd86c', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Đặng Tuấn Kiệt', 'student6@aiviva.local', '$2a$10$lLMGR4giC/fanoTpqvPGLeLfWXCvBziZcAxACgl/a0fE4tBch6mKi', 'SE1929006', TRUE, '2026-10-05 09:00:00+07'),
+('43fbc4af-2a3c-5a9e-8039-012cedf00931', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Phan Thảo Vy', 'student7@aiviva.local', '$2a$10$lLMGR4giC/fanoTpqvPGLeLfWXCvBziZcAxACgl/a0fE4tBch6mKi', 'SE1929007', TRUE, '2026-10-04 09:00:00+07'),
+('4446b76e-9bb3-52b5-80e5-3767a120130d', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Bùi Đức Anh', 'student8@aiviva.local', '$2a$10$lLMGR4giC/fanoTpqvPGLeLfWXCvBziZcAxACgl/a0fE4tBch6mKi', 'SE1929008', TRUE, '2026-10-03 09:00:00+07'),
+('801f81b1-c37b-5b7b-8fb1-e14fbd93a56b', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Hoàng Yến Nhi', 'student9@aiviva.local', '$2a$10$lLMGR4giC/fanoTpqvPGLeLfWXCvBziZcAxACgl/a0fE4tBch6mKi', 'SE1929009', TRUE, '2026-10-02 09:00:00+07'),
+('88cff15f-27fd-53d4-8404-308c01b256c1', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Đỗ Thành Đạt', 'student10@aiviva.local', '$2a$10$lLMGR4giC/fanoTpqvPGLeLfWXCvBziZcAxACgl/a0fE4tBch6mKi', 'SE1929010', FALSE, '2026-10-01 09:00:00+07'),
+('58090cf2-dd66-50d5-96ba-f7f5614ff592', '137c5498-ae32-57ea-9c11-e07b205713e8', 'Mai Phương Thảo', 'student11@aiviva.local', '$2a$10$lLMGR4giC/fanoTpqvPGLeLfWXCvBziZcAxACgl/a0fE4tBch6mKi', 'SE1929011', TRUE, '2026-09-30 09:00:00+07')
+ON CONFLICT (user_id) DO NOTHING;
 
 INSERT INTO subject_topic (topic_id, created_by, topic_code, topic_name, description, created_at) VALUES
 ('3e8a7521-aaff-5633-8dad-07543ec14781', '4b15e443-cf48-5b71-8fd6-4e52809ffbd5', 'TOPIC-001', 'Lập trình Java cơ bản', 'Cú pháp Java, kiểu dữ liệu, điều khiển luồng và xử lý ngoại lệ.', '2026-10-14 09:00:00+07'),
@@ -32,7 +34,8 @@ INSERT INTO subject_topic (topic_id, created_by, topic_code, topic_name, descrip
 ('7e45a7f0-1aae-545e-af8e-34a438b61a49', '7cdbf73b-3911-55d4-8dd8-52589f69c1ec', 'TOPIC-005', 'Kiến trúc phần mềm', 'Kiến trúc phần mềm phổ biến, ưu nhược điểm và cách lựa chọn.', '2026-10-10 09:00:00+07'),
 ('b12d9b93-afb9-5eb8-b155-cc8f0fdedd06', 'b668bf13-c75e-541a-8876-833968dfedca', 'TOPIC-006', 'Mạng máy tính', 'Mô hình OSI, TCP/IP, định tuyến và giao thức mạng.', '2026-10-09 09:00:00+07'),
 ('6f855894-bef1-539a-9d15-9a2ae682a929', '4b15e443-cf48-5b71-8fd6-4e52809ffbd5', 'TOPIC-007', 'Trí tuệ nhân tạo', 'Tìm kiếm, học máy, xử lý ngôn ngữ tự nhiên và ứng dụng AI.', '2026-10-08 09:00:00+07'),
-('3bbe20f0-81e2-551a-9c0f-d9fd43aab7ea', '7cdbf73b-3911-55d4-8dd8-52589f69c1ec', 'TOPIC-008', 'Phát triển ứng dụng web', 'HTTP, REST API, frontend, backend và bảo mật ứng dụng web.', '2026-10-07 09:00:00+07');
+('3bbe20f0-81e2-551a-9c0f-d9fd43aab7ea', '7cdbf73b-3911-55d4-8dd8-52589f69c1ec', 'TOPIC-008', 'Phát triển ứng dụng web', 'HTTP, REST API, frontend, backend và bảo mật ứng dụng web.', '2026-10-07 09:00:00+07')
+ON CONFLICT (topic_id) DO NOTHING;
 
 INSERT INTO topic_material (material_id, topic_id, title, file_url, is_indexed, uploaded_at) VALUES
 ('53ae6456-0860-52f0-bced-5bcbcaa9bfda', '3e8a7521-aaff-5633-8dad-07543ec14781', 'Tài liệu 1 - Lập trình Java cơ bản', 'https://example.com/aiviva/materials/material-1.pdf', TRUE, '2026-10-15 08:00:00+07'),
@@ -58,7 +61,8 @@ INSERT INTO topic_material (material_id, topic_id, title, file_url, is_indexed, 
 ('71d5808e-4d9f-5922-813c-4ca9705423f1', '6f855894-bef1-539a-9d15-9a2ae682a929', 'Tài liệu 3 - Trí tuệ nhân tạo', 'https://example.com/aiviva/materials/material-21.pdf', TRUE, '2026-10-14 12:00:00+07'),
 ('ed2a6c67-80c3-5a8c-b848-e4c4460a9f91', '3bbe20f0-81e2-551a-9c0f-d9fd43aab7ea', 'Tài liệu 1 - Phát triển ứng dụng web', 'https://example.com/aiviva/materials/material-22.pdf', TRUE, '2026-10-14 11:00:00+07'),
 ('64ffd992-5d0a-5c05-b377-989fed1af5b8', '3bbe20f0-81e2-551a-9c0f-d9fd43aab7ea', 'Tài liệu 2 - Phát triển ứng dụng web', 'https://example.com/aiviva/materials/material-23.pdf', TRUE, '2026-10-14 10:00:00+07'),
-('fbb1d283-33a1-55e7-b319-6ee1242e3115', '3bbe20f0-81e2-551a-9c0f-d9fd43aab7ea', 'Tài liệu 3 - Phát triển ứng dụng web', 'https://example.com/aiviva/materials/material-24.pdf', FALSE, '2026-10-14 09:00:00+07');
+('fbb1d283-33a1-55e7-b319-6ee1242e3115', '3bbe20f0-81e2-551a-9c0f-d9fd43aab7ea', 'Tài liệu 3 - Phát triển ứng dụng web', 'https://example.com/aiviva/materials/material-24.pdf', FALSE, '2026-10-14 09:00:00+07')
+ON CONFLICT (material_id) DO NOTHING;
 
 INSERT INTO question (question_id, topic_id, created_by, question_text, bloom_level, source_type, approval_status, created_at) VALUES
 ('9768f4d4-7e44-5af5-a674-f2a40e8ca424', '3e8a7521-aaff-5633-8dad-07543ec14781', '4b15e443-cf48-5b71-8fd6-4e52809ffbd5', 'Hãy định nghĩa khái niệm cốt lõi và nêu một ví dụ minh họa. (Chủ đề 1, câu 1)', 'REMEMBER', 'LECTURER_CREATED', 'APPROVED', '2026-10-15 08:00:00+07'),
@@ -108,7 +112,8 @@ INSERT INTO question (question_id, topic_id, created_by, question_text, bloom_le
 ('429f946b-bc3a-50bf-aa36-a95daa052b1a', '3bbe20f0-81e2-551a-9c0f-d9fd43aab7ea', 'b668bf13-c75e-541a-8876-833968dfedca', 'So sánh hai cách tiếp cận thường gặp trong chủ đề này. (Chủ đề 8, câu 3)', 'UNDERSTAND', 'LECTURER_CREATED', 'APPROVED', '2026-10-13 12:00:00+07'),
 ('371a393f-8eda-5391-abd7-2405688e4f1c', '3bbe20f0-81e2-551a-9c0f-d9fd43aab7ea', '4b15e443-cf48-5b71-8fd6-4e52809ffbd5', 'Phân tích một tình huống thực tế và đề xuất hướng giải quyết. (Chủ đề 8, câu 4)', 'APPLY', 'MATERIAL_BASED', 'APPROVED', '2026-10-13 11:00:00+07'),
 ('1514df3d-e0b5-504c-ac22-0f8c96c37f45', '3bbe20f0-81e2-551a-9c0f-d9fd43aab7ea', '7cdbf73b-3911-55d4-8dd8-52589f69c1ec', 'Nếu yêu cầu thay đổi, thiết kế hiện tại cần điều chỉnh như thế nào? Vì sao? (Chủ đề 8, câu 5)', 'ANALYZE', 'MATERIAL_BASED', 'APPROVED', '2026-10-13 10:00:00+07'),
-('37fbcf16-2b90-55db-9d5f-7a84f16d8cd8', '3bbe20f0-81e2-551a-9c0f-d9fd43aab7ea', 'b668bf13-c75e-541a-8876-833968dfedca', 'Đánh giá ưu điểm, hạn chế và rủi ro của giải pháp được đề xuất. (Chủ đề 8, câu 6)', 'EVALUATE', 'AI_GENERATED', 'PENDING', '2026-10-13 09:00:00+07');
+('37fbcf16-2b90-55db-9d5f-7a84f16d8cd8', '3bbe20f0-81e2-551a-9c0f-d9fd43aab7ea', 'b668bf13-c75e-541a-8876-833968dfedca', 'Đánh giá ưu điểm, hạn chế và rủi ro của giải pháp được đề xuất. (Chủ đề 8, câu 6)', 'EVALUATE', 'AI_GENERATED', 'PENDING', '2026-10-13 09:00:00+07')
+ON CONFLICT (question_id) DO NOTHING;
 
 INSERT INTO rubric_criteria (criteria_id, question_id, criteria_name, expected_knowledge_points, weight_ratio) VALUES
 ('f84ef6c1-4037-5932-9d06-ca8a8e9df910', '9768f4d4-7e44-5af5-a674-f2a40e8ca424', 'Độ chính xác kiến thức', 'Nêu đúng định nghĩa, thuật ngữ và các thành phần quan trọng.', 0.5),
@@ -254,15 +259,17 @@ INSERT INTO rubric_criteria (criteria_id, question_id, criteria_name, expected_k
 ('7585a7ea-413c-55df-b29c-f61bde133925', '1514df3d-e0b5-504c-ac22-0f8c96c37f45', 'Ví dụ và lập luận', 'Đưa ra ví dụ phù hợp và lập luận có căn cứ.', 0.2),
 ('c56ce8b2-a7b7-54c2-9e4b-99f2d4bea488', '37fbcf16-2b90-55db-9d5f-7a84f16d8cd8', 'Độ chính xác kiến thức', 'Nêu đúng định nghĩa, thuật ngữ và các thành phần quan trọng.', 0.5),
 ('c75b0331-8a9d-523a-99c4-b84324920e0d', '37fbcf16-2b90-55db-9d5f-7a84f16d8cd8', 'Khả năng giải thích', 'Giải thích mạch lạc mối quan hệ giữa các khái niệm.', 0.3),
-('f6ade754-f418-521f-933d-13a4104f498e', '37fbcf16-2b90-55db-9d5f-7a84f16d8cd8', 'Ví dụ và lập luận', 'Đưa ra ví dụ phù hợp và lập luận có căn cứ.', 0.2);
+('f6ade754-f418-521f-933d-13a4104f498e', '37fbcf16-2b90-55db-9d5f-7a84f16d8cd8', 'Ví dụ và lập luận', 'Đưa ra ví dụ phù hợp và lập luận có căn cứ.', 0.2)
+on CONFLICT (criteria_id) DO NOTHING;
 
-INSERT INTO exam_session (session_id, created_by, session_name, max_main_questions, max_followup_per_question, time_limit_minutes, status, start_time, created_at) VALUES
-('43f82426-0be8-519d-b555-c068abf14d92', '4b15e443-cf48-5b71-8fd6-4e52809ffbd5', 'Kỳ thi vấn đáp đợt 1', 4, 2, 15, 'COMPLETED', '2026-10-13 09:00:00+07', '2026-10-14 09:00:00+07'),
-('088e9cae-bfcb-5065-bdde-6be58aed39a4', '7cdbf73b-3911-55d4-8dd8-52589f69c1ec', 'Kỳ thi vấn đáp đợt 2', 4, 2, 15, 'COMPLETED', '2026-10-14 09:00:00+07', '2026-10-13 09:00:00+07'),
-('42f2583a-9040-5984-9a79-1171c7d8d553', 'b668bf13-c75e-541a-8876-833968dfedca', 'Kỳ thi vấn đáp đợt 3', 4, 2, 15, 'IN_PROGRESS', '2026-10-15 09:00:00+07', '2026-10-12 09:00:00+07'),
-('e4e208e3-0e9c-53cf-b032-f1c22492eda2', '4b15e443-cf48-5b71-8fd6-4e52809ffbd5', 'Kỳ thi vấn đáp đợt 4', 4, 2, 15, 'SCHEDULED', '2026-10-16 09:00:00+07', '2026-10-11 09:00:00+07'),
-('7219ac63-08f0-5d27-a627-2dacabfd10c7', '7cdbf73b-3911-55d4-8dd8-52589f69c1ec', 'Kỳ thi vấn đáp đợt 5', 4, 2, 15, 'SCHEDULED', '2026-10-17 09:00:00+07', '2026-10-10 09:00:00+07'),
-('eb35a7f2-626d-5ee0-9a8c-34aef7890498', 'b668bf13-c75e-541a-8876-833968dfedca', 'Kỳ thi vấn đáp đợt 6', 4, 2, 15, 'CANCELLED', '2026-10-18 09:00:00+07', '2026-10-09 09:00:00+07');
+INSERT INTO exam_session (session_id, created_by, topic_id, session_name, max_main_questions, max_followup_per_question, time_limit_minutes, status, start_time, created_at) VALUES
+('43f82426-0be8-519d-b555-c068abf14d92', '4b15e443-cf48-5b71-8fd6-4e52809ffbd5', '3e8a7521-aaff-5633-8dad-07543ec14781', 'Kỳ thi vấn đáp đợt 1', 4, 2, 15, 'COMPLETED', '2026-10-13 09:00:00+07', '2026-10-14 09:00:00+07'),
+('088e9cae-bfcb-5065-bdde-6be58aed39a4', '7cdbf73b-3911-55d4-8dd8-52589f69c1ec', '474d1b4d-4d3b-5e7c-a12a-02a7e8e83fc8', 'Kỳ thi vấn đáp đợt 2', 4, 2, 15, 'COMPLETED', '2026-10-14 09:00:00+07', '2026-10-13 09:00:00+07'),
+('42f2583a-9040-5984-9a79-1171c7d8d553', 'b668bf13-c75e-541a-8876-833968dfedca', '8931fbcd-3499-58d0-bf5d-46c13ff64737', 'Kỳ thi vấn đáp đợt 3', 4, 2, 15, 'IN_PROGRESS', '2026-10-15 09:00:00+07', '2026-10-12 09:00:00+07'),
+('e4e208e3-0e9c-53cf-b032-f1c22492eda2', '4b15e443-cf48-5b71-8fd6-4e52809ffbd5', '92c3c840-0bcd-5c5d-a8ba-dd67ef9446bc', 'Kỳ thi vấn đáp đợt 4', 4, 2, 15, 'SCHEDULED', '2026-10-16 09:00:00+07', '2026-10-11 09:00:00+07'),
+('7219ac63-08f0-5d27-a627-2dacabfd10c7', '7cdbf73b-3911-55d4-8dd8-52589f69c1ec', '7e45a7f0-1aae-545e-af8e-34a438b61a49', 'Kỳ thi vấn đáp đợt 5', 4, 2, 15, 'SCHEDULED', '2026-10-17 09:00:00+07', '2026-10-10 09:00:00+07'),
+('eb35a7f2-626d-5ee0-9a8c-34aef7890498', 'b668bf13-c75e-541a-8876-833968dfedca', 'b12d9b93-afb9-5eb8-b155-cc8f0fdedd06', 'Kỳ thi vấn đáp đợt 6', 4, 2, 15, 'CANCELLED', '2026-10-18 09:00:00+07', '2026-10-09 09:00:00+07')
+on CONFLICT (session_id) DO NOTHING;
 
 INSERT INTO student_session_assignment (assignment_id, session_id, student_id, scheduled_time, status) VALUES
 ('d948145e-89d9-56a6-a328-ec0b501e40b8', '43f82426-0be8-519d-b555-c068abf14d92', 'a251e76b-00f8-5a9b-b253-57d006c4e944', '2026-10-16 09:00:00+07', 'COMPLETED'),
@@ -294,7 +301,8 @@ INSERT INTO student_session_assignment (assignment_id, session_id, student_id, s
 ('90892d16-dc4e-5309-9190-143983c162ab', 'eb35a7f2-626d-5ee0-9a8c-34aef7890498', 'efe2bb23-ca50-58c9-8fa0-deb73ac8681c', '2026-10-21 09:20:00+07', 'PENDING'),
 ('e751204c-d35e-545f-924f-0849393b5900', 'eb35a7f2-626d-5ee0-9a8c-34aef7890498', 'dbb4de06-5f95-5d59-b061-b93f126bd86c', '2026-10-21 09:40:00+07', 'PENDING'),
 ('b57c9daf-ea68-5331-bce1-9e963d3faee4', 'eb35a7f2-626d-5ee0-9a8c-34aef7890498', '43fbc4af-2a3c-5a9e-8039-012cedf00931', '2026-10-21 10:00:00+07', 'PENDING'),
-('0149b405-5be5-5586-a761-00fdf1f73a59', 'eb35a7f2-626d-5ee0-9a8c-34aef7890498', '4446b76e-9bb3-52b5-80e5-3767a120130d', '2026-10-21 10:20:00+07', 'PENDING');
+('0149b405-5be5-5586-a761-00fdf1f73a59', 'eb35a7f2-626d-5ee0-9a8c-34aef7890498', '4446b76e-9bb3-52b5-80e5-3767a120130d', '2026-10-21 10:20:00+07', 'PENDING')
+on CONFLICT (assignment_id) DO NOTHING;
 
 INSERT INTO viva_attempt (attempt_id, assignment_id, full_audio_url, status, start_time, end_time) VALUES
 ('5b26920b-4806-55af-841e-78b8af621914', 'd948145e-89d9-56a6-a328-ec0b501e40b8', 'https://example.com/aiviva/audio/attempt-1.mp3', 'COMPLETED', '2026-10-15 07:00:00+07', '2026-10-15 08:00:00+07'),
@@ -326,7 +334,8 @@ INSERT INTO viva_attempt (attempt_id, assignment_id, full_audio_url, status, sta
 ('db79cc8c-34f3-5dcc-b859-4bc990931202', '90892d16-dc4e-5309-9190-143983c162ab', NULL, 'NOT_STARTED', NULL, NULL),
 ('3d7b5d65-a022-59fa-9093-0ed6d5c46c84', 'e751204c-d35e-545f-924f-0849393b5900', NULL, 'NOT_STARTED', NULL, NULL),
 ('a2ccb847-33f9-5af9-93d9-605ed4960547', 'b57c9daf-ea68-5331-bce1-9e963d3faee4', NULL, 'NOT_STARTED', NULL, NULL),
-('1430b2a6-ed6e-5411-a6ee-9055dbdc4c60', '0149b405-5be5-5586-a761-00fdf1f73a59', NULL, 'NOT_STARTED', NULL, NULL);
+('1430b2a6-ed6e-5411-a6ee-9055dbdc4c60', '0149b405-5be5-5586-a761-00fdf1f73a59', NULL, 'NOT_STARTED', NULL, NULL)
+on CONFLICT (attempt_id) DO NOTHING;
 
 INSERT INTO interaction_turn (turn_id, attempt_id, main_question_id, turn_order, turn_type, ai_question_text, transcript_text, audio_segment_url, ai_reasoning, created_at) VALUES
 ('d44277be-3b12-5cfb-b366-521a156067cd', '5b26920b-4806-55af-841e-78b8af621914', '9768f4d4-7e44-5af5-a674-f2a40e8ca424', 1, 'MAIN', 'Câu hỏi chính: hãy trình bày khái niệm và nêu ví dụ cụ thể.', 'Theo em, khái niệm này mô tả các thành phần và cách chúng hoạt động cùng nhau.', 'https://example.com/aiviva/audio/turn-1.mp3', 'AI đánh giá mức độ liên quan, độ đầy đủ và tính nhất quán của câu trả lời.', '2026-10-15 08:59:00+07'),
@@ -478,7 +487,8 @@ INSERT INTO interaction_turn (turn_id, attempt_id, main_question_id, turn_order,
 ('77158ca6-925b-5a43-bf67-45f1d2f28f8f', '1430b2a6-ed6e-5411-a6ee-9055dbdc4c60', 'c4836411-d68f-520f-80d6-08a435be53e6', 2, 'FOLLOW_UP', 'Câu hỏi đào sâu: em có thể giải thích rõ hơn lập luận vừa nêu không?', NULL, NULL, 'AI đánh giá mức độ liên quan, độ đầy đủ và tính nhất quán của câu trả lời.', '2026-10-15 06:33:00+07'),
 ('e26366ec-01e6-5024-80fe-4eca0cc198ac', '1430b2a6-ed6e-5411-a6ee-9055dbdc4c60', '0d50f56f-f7e5-5569-9fc1-f87b11bca53a', 3, 'MAIN', 'Câu hỏi chính: hãy trình bày khái niệm và nêu ví dụ cụ thể.', NULL, NULL, 'AI đánh giá mức độ liên quan, độ đầy đủ và tính nhất quán của câu trả lời.', '2026-10-15 06:32:00+07'),
 ('1b70ca1a-2f43-5d98-a28e-99e6408c5b69', '1430b2a6-ed6e-5411-a6ee-9055dbdc4c60', '16e2c2f4-8f41-5a01-a699-87cfd4a22657', 4, 'FOLLOW_UP', 'Câu hỏi đào sâu: em có thể giải thích rõ hơn lập luận vừa nêu không?', NULL, NULL, 'AI đánh giá mức độ liên quan, độ đầy đủ và tính nhất quán của câu trả lời.', '2026-10-15 06:31:00+07'),
-('a20bb674-e4bf-5a8f-b4b9-ea7ca7752235', '1430b2a6-ed6e-5411-a6ee-9055dbdc4c60', 'c4836411-d68f-520f-80d6-08a435be53e6', 5, 'FOLLOW_UP', 'Câu hỏi đào sâu: em có thể giải thích rõ hơn lập luận vừa nêu không?', NULL, NULL, 'AI đánh giá mức độ liên quan, độ đầy đủ và tính nhất quán của câu trả lời.', '2026-10-15 06:30:00+07');
+('a20bb674-e4bf-5a8f-b4b9-ea7ca7752235', '1430b2a6-ed6e-5411-a6ee-9055dbdc4c60', 'c4836411-d68f-520f-80d6-08a435be53e6', 5, 'FOLLOW_UP', 'Câu hỏi đào sâu: em có thể giải thích rõ hơn lập luận vừa nêu không?', NULL, NULL, 'AI đánh giá mức độ liên quan, độ đầy đủ và tính nhất quán của câu trả lời.', '2026-10-15 06:30:00+07')
+ON CONFLICT (turn_id) DO NOTHING;
 
 INSERT INTO acoustic_fluency_metric (metric_id, turn_id, words_per_minute, hesitation_pauses_count, stt_confidence_score, speech_clarity_score) VALUES
 ('b54eb9ab-02f4-5119-81a2-1def01864316', 'd44277be-3b12-5cfb-b366-521a156067cd', 86, 1, 0.71, 2.6),
@@ -600,7 +610,8 @@ INSERT INTO acoustic_fluency_metric (metric_id, turn_id, words_per_minute, hesit
 ('696b24f4-8f0f-562e-8091-6b2c5caec6d1', 'b4557c5c-e068-5b62-87e9-aafde42b5f82', 126, 5, 0.97, 3.8),
 ('87966250-2743-5987-85d5-109629e9db62', '97f692f9-4d6d-5cb5-9a28-0caa643e6ae7', 127, 6, 0.98, 3.9),
 ('e518bcdd-4873-5782-ac87-0d409df1b70b', '4eb60d7c-5cc9-5885-887c-0ac23d934f8a', 128, 0, 0.99, 4.0),
-('30ed85a1-6544-51cd-a28a-26f67a632121', '5e1bb86a-e260-5b93-85e4-55f7dea45820', 129, 1, 0.7, 4.1);
+('30ed85a1-6544-51cd-a28a-26f67a632121', '5e1bb86a-e260-5b93-85e4-55f7dea45820', 129, 1, 0.7, 4.1)
+ON CONFLICT (metric_id) DO NOTHING;
 
 INSERT INTO ai_rubric_assessment (assessment_id, turn_id, criteria_id, semantic_similarity, compliance_status, ai_suggested_points, missing_concepts, ai_explanation_reasoning) VALUES
 ('fcfb695c-1586-5c48-bb29-3d7dcc32c40c', 'd44277be-3b12-5cfb-b366-521a156067cd', 'f84ef6c1-4037-5932-9d06-ca8a8e9df910', 0.56, 'COMPLIANT', 1.1, NULL, 'Điểm đề xuất dựa trên độ chính xác, mức độ bao phủ ý chính và bằng chứng trong transcript.'),
@@ -1052,7 +1063,8 @@ INSERT INTO ai_rubric_assessment (assessment_id, turn_id, criteria_id, semantic_
 ('829bcd3d-ccdf-560a-9531-03b73c57882e', '1b70ca1a-2f43-5d98-a28e-99e6408c5b69', 'b8a2f3fe-141e-56cb-9ed2-fb3e5702ce35', 0.97, 'COMPLIANT', 2.3, NULL, 'Điểm đề xuất dựa trên độ chính xác, mức độ bao phủ ý chính và bằng chứng trong transcript.'),
 ('6c5a2aa6-d983-5309-a4b8-3d3b2633d3f7', 'a20bb674-e4bf-5a8f-b4b9-ea7ca7752235', 'a2f21227-d12c-5959-9f69-fe4825d676d9', 0.98, 'PARTIAL', 2.4, 'Cần bổ sung ví dụ cụ thể và giải thích điều kiện áp dụng.', 'Điểm đề xuất dựa trên độ chính xác, mức độ bao phủ ý chính và bằng chứng trong transcript.'),
 ('aa41b12f-1e41-5d90-806b-54f92e827ed4', 'a20bb674-e4bf-5a8f-b4b9-ea7ca7752235', '541e2b10-e1ba-5004-89d9-4847b23e52aa', 0.99, 'COMPLIANT', 2.5, NULL, 'Điểm đề xuất dựa trên độ chính xác, mức độ bao phủ ý chính và bằng chứng trong transcript.'),
-('8f08d532-2c5c-5aba-918a-dfb9a069f529', 'a20bb674-e4bf-5a8f-b4b9-ea7ca7752235', '1b35e77f-8fc7-5909-8b27-3aefac4d3df2', 0.55, 'COMPLIANT', 2.6, NULL, 'Điểm đề xuất dựa trên độ chính xác, mức độ bao phủ ý chính và bằng chứng trong transcript.');
+('8f08d532-2c5c-5aba-918a-dfb9a069f529', 'a20bb674-e4bf-5a8f-b4b9-ea7ca7752235', '1b35e77f-8fc7-5909-8b27-3aefac4d3df2', 0.55, 'COMPLIANT', 2.6, NULL, 'Điểm đề xuất dựa trên độ chính xác, mức độ bao phủ ý chính và bằng chứng trong transcript.')
+on conflict do nothing;
 
 INSERT INTO ai_claim_evidence (claim_id, turn_id, assessment_id, student_claim_text, exact_quote_evidence, start_timestamp_ms, end_timestamp_ms, is_factually_correct) VALUES
 ('f8a3f539-9a59-5280-9b70-e944f722df0f', 'd44277be-3b12-5cfb-b366-521a156067cd', 'fcfb695c-1586-5c48-bb29-3d7dcc32c40c', 'Sinh viên nêu đúng khái niệm chính.', 'Theo em, khái niệm này mô tả các thành phần và cách chúng hoạt động cùng nhau.', 0, 3500, TRUE),
@@ -1504,7 +1516,8 @@ INSERT INTO ai_claim_evidence (claim_id, turn_id, assessment_id, student_claim_t
 ('3b93b2ca-020f-540a-b32e-1866e4776e24', '1b70ca1a-2f43-5d98-a28e-99e6408c5b69', '829bcd3d-ccdf-560a-9531-03b73c57882e', 'Sinh viên đưa ra ví dụ có liên quan đến câu hỏi.', 'Ví dụ thực tế giúp làm rõ sự khác nhau giữa lý thuyết và cách áp dụng.', 4000, 7500, TRUE),
 ('ecb83e61-fb0e-56eb-a967-4e414eec0af8', 'a20bb674-e4bf-5a8f-b4b9-ea7ca7752235', '6c5a2aa6-d983-5309-a4b8-3d3b2633d3f7', 'Sinh viên nêu đúng khái niệm chính.', 'Theo em, khái niệm này mô tả các thành phần và cách chúng hoạt động cùng nhau.', 8000, 11500, TRUE),
 ('de719254-e45a-5853-b3e5-81e0adf3931e', 'a20bb674-e4bf-5a8f-b4b9-ea7ca7752235', 'aa41b12f-1e41-5d90-806b-54f92e827ed4', 'Sinh viên giải thích được mối quan hệ giữa các thành phần.', 'Em sẽ phân tích yêu cầu trước, sau đó chọn giải pháp phù hợp và kiểm thử.', 12000, 15500, TRUE),
-('161206f9-72bf-58fa-8bae-e794838c1595', 'a20bb674-e4bf-5a8f-b4b9-ea7ca7752235', '8f08d532-2c5c-5aba-918a-dfb9a069f529', 'Sinh viên đưa ra ví dụ có liên quan đến câu hỏi.', 'Ví dụ thực tế giúp làm rõ sự khác nhau giữa lý thuyết và cách áp dụng.', 16000, 19500, FALSE);
+('161206f9-72bf-58fa-8bae-e794838c1595', 'a20bb674-e4bf-5a8f-b4b9-ea7ca7752235', '8f08d532-2c5c-5aba-918a-dfb9a069f529', 'Sinh viên đưa ra ví dụ có liên quan đến câu hỏi.', 'Ví dụ thực tế giúp làm rõ sự khác nhau giữa lý thuyết và cách áp dụng.', 16000, 19500, FALSE)
+ON CONFLICT (claim_id) DO NOTHING;
 
 INSERT INTO final_grade_report (report_id, attempt_id, finalized_by_lecturer_id, total_ai_score, final_teacher_score, teacher_adjustment_reason, ai_overall_feedback, finalized_at) VALUES
 ('5d8f85a0-c7c8-539d-b531-5c00f2c73057', '5b26920b-4806-55af-841e-78b8af621914', '4b15e443-cf48-5b71-8fd6-4e52809ffbd5', 5.7, 5.6, NULL, 'Sinh viên nắm được một số ý chính. Cần trình bày lập luận rõ ràng hơn và bổ sung ví dụ thực tế.', '2026-10-15 08:00:00+07'),
@@ -1536,6 +1549,7 @@ INSERT INTO final_grade_report (report_id, attempt_id, finalized_by_lecturer_id,
 ('abf81f53-6caf-5287-8f14-32daf2bcb616', 'db79cc8c-34f3-5dcc-b859-4bc990931202', NULL, 8.6, NULL, NULL, 'Sinh viên nắm được một số ý chính. Cần trình bày lập luận rõ ràng hơn và bổ sung ví dụ thực tế.', NULL),
 ('cdb55f4d-6f9a-555f-b609-4d3c5407d469', '3d7b5d65-a022-59fa-9093-0ed6d5c46c84', NULL, 9.3, NULL, 'Giảng viên điều chỉnh điểm sau khi xem lại bằng chứng câu trả lời.', 'Sinh viên nắm được một số ý chính. Cần trình bày lập luận rõ ràng hơn và bổ sung ví dụ thực tế.', NULL),
 ('c6d8ec75-3f05-5ebf-911e-0c9bae0abd4d', 'a2ccb847-33f9-5af9-93d9-605ed4960547', NULL, 10.0, NULL, NULL, 'Sinh viên nắm được một số ý chính. Cần trình bày lập luận rõ ràng hơn và bổ sung ví dụ thực tế.', NULL),
-('da504c00-1d3a-50bd-a695-81a4d8240471', '1430b2a6-ed6e-5411-a6ee-9055dbdc4c60', NULL, 5.6, NULL, NULL, 'Sinh viên nắm được một số ý chính. Cần trình bày lập luận rõ ràng hơn và bổ sung ví dụ thực tế.', NULL);
+('da504c00-1d3a-50bd-a695-81a4d8240471', '1430b2a6-ed6e-5411-a6ee-9055dbdc4c60', NULL, 5.6, NULL, NULL, 'Sinh viên nắm được một số ý chính. Cần trình bày lập luận rõ ràng hơn và bổ sung ví dụ thực tế.', NULL)
+on conflict (attempt_id) do update set total_ai_score = excluded.total_ai_score, final_teacher_score = excluded.final_teacher_score, teacher_adjustment_reason = excluded.teacher_adjustment_reason, ai_overall_feedback = excluded.ai_overall_feedback, finalized_at = excluded.finalized_at;
 
 COMMIT;

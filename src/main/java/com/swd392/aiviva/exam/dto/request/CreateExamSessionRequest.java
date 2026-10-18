@@ -19,6 +19,9 @@ public class CreateExamSessionRequest {
     @NotBlank(message = "Session name is required")
     private String sessionName;
 
+    @NotNull(message = "Topic id is required")
+    private UUID topicId;
+
     @NotNull(message = "Max main questions is required")
     @Min(value = 1, message = "Max main questions must be at least 1")
     private Integer maxMainQuestions;
