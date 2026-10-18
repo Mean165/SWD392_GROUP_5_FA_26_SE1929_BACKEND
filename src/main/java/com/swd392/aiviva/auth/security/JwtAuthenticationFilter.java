@@ -9,11 +9,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import io.jsonwebtoken.JwtException;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -41,7 +41,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         final String jwt = authHeader.substring(7);
-        final String userEmail = jwtService.extractUsername(jwt);
+        final String userEmail;
+        try {
+            userEmail = jwtService.extractUsername(jwt);
+        } catch (JwtException | IllegalArgumentException exception) {
+            rejectInvalidToken(response);
+            return;
+        }
 
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             AppUser user = userRepository.findByEmail(userEmail).orElse(null);
@@ -50,14 +56,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String roleCode = (user.getRole() != null) ? user.getRole().getRoleCode() : "ST";
                 List<SimpleGrantedAuthority> authorities = Collections.singletonList(
                         new SimpleGrantedAuthority("ROLE_" + roleCode));
-
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userEmail, null, authorities);
-
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                try {
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userEmail, null, authorities);
+                    authToken.setDetails(new JwtAuthenticationDetails(request, jwtService.extractUserId(jwt)));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                } catch (JwtException | IllegalArgumentException exception) {
+                    rejectInvalidToken(response);
+                    return;
+                }
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    private void rejectInvalidToken(HttpServletResponse response) {
+        response.setHeader("WWW-Authenticate", "Bearer error=\"invalid_token\"");
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
     }
 }

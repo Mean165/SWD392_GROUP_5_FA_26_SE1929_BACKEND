@@ -52,9 +52,7 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException("Email already registered: " + email);
         }
 
-        String targetRoleCode = (request.getRoleCode() != null && !request.getRoleCode().trim().isBlank())
-                ? request.getRoleCode().trim().toUpperCase() 
-                : "ST";
+        String targetRoleCode = "ST";
 
         Role role = roleRepository.findByRoleCode(targetRoleCode)
                 .orElseGet(() -> {

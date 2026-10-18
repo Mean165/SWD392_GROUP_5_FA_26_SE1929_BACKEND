@@ -1,6 +1,7 @@
 package com.swd392.aiviva.auth.security;
 
 import java.util.Map;
+import java.util.UUID;
 
 public interface JwtService {
 
@@ -11,6 +12,8 @@ public interface JwtService {
     String extractUsername(String token);
 
     String extractEmail(String token);
+
+    UUID extractUserId(String token);
 
     boolean isTokenValid(String token, String username);
 

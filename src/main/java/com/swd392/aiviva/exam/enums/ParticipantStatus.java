@@ -1,10 +1,9 @@
 package com.swd392.aiviva.exam.enums;
 
 public enum ParticipantStatus {
-    INVITED,
-    READY,
+    PENDING,
+    SCHEDULED,
     IN_PROGRESS,
-    SUBMITTED,
+    COMPLETED,
     ABSENT
 }
-

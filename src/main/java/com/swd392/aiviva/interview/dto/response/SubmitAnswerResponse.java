@@ -18,5 +18,7 @@ public class SubmitAnswerResponse {
     private boolean completed;
     private boolean followUpGenerated;
     private InteractionTurnResponse nextTurn;
+    private String answerClassification;
+    private String analysisSummary;
     private List<AiAssessmentResponse> assessments;
 }

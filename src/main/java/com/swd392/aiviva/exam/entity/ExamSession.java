@@ -1,6 +1,7 @@
 package com.swd392.aiviva.exam.entity;
 
 import com.swd392.aiviva.user.entity.AppUser;
+import com.swd392.aiviva.question.entity.SubjectTopic;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -36,6 +37,10 @@ public class ExamSession implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private AppUser createdBy;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "topic_id")
+    private SubjectTopic topic;
 
     @Column(name = "session_name", nullable = false)
     private String sessionName;

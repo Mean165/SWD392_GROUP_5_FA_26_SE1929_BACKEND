@@ -16,6 +16,8 @@ public class ExamSessionResponse {
     private UUID sessionId;
     private UUID createdById;
     private String createdByName;
+    private UUID topicId;
+    private String topicName;
     private String sessionName;
     private Integer maxMainQuestions;
     private Integer maxFollowupPerQuestion;

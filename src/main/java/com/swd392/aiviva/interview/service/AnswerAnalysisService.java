@@ -1,7 +1,9 @@
 package com.swd392.aiviva.interview.service;
 
+import com.swd392.aiviva.interview.dto.AnswerAnalysisContext;
+import com.swd392.aiviva.interview.dto.AnswerAnalysisResult;
+
 public interface AnswerAnalysisService {
 
-    String analyzeAnswer(String transcript);
+    AnswerAnalysisResult analyzeAnswer(AnswerAnalysisContext context);
 }
-

@@ -16,4 +16,14 @@ public class SpeechToTextServiceImpl implements SpeechToTextService {
     public String transcribe(String audioDataUrl) {
         return sttProviderAdapter.transcribe(audioDataUrl);
     }
+
+    @Override
+    public String transcribe(String audioDataUrl, String language) {
+        return sttProviderAdapter.transcribe(audioDataUrl, language);
+    }
+
+    @Override
+    public String transcribe(byte[] audioBytes, String filename, String language) {
+        return sttProviderAdapter.transcribe(audioBytes, filename, language);
+    }
 }

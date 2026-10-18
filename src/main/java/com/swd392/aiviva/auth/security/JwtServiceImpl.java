@@ -7,6 +7,7 @@ import io.jsonwebtoken.security.Keys;
 import java.security.Key;
 import java.util.Date;
 import java.util.Map;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -39,6 +40,12 @@ public class JwtServiceImpl implements JwtService {
     @Override
     public String extractEmail(String token) {
         return extractUsername(token);
+    }
+
+    @Override
+    public UUID extractUserId(String token) {
+        String userId = extractAllClaims(token).get("userId", String.class);
+        return userId == null ? null : UUID.fromString(userId);
     }
 
     @Override

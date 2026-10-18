@@ -25,5 +25,4 @@ public class RegisterRequest {
 
     private String studentOrStaffCode;
 
-    private String roleCode;
 }

@@ -11,6 +11,8 @@ import com.swd392.aiviva.exam.entity.ExamSession;
 import com.swd392.aiviva.exam.entity.StudentSessionAssignment;
 import com.swd392.aiviva.exam.repository.ExamSessionRepository;
 import com.swd392.aiviva.exam.repository.StudentSessionAssignmentRepository;
+import com.swd392.aiviva.question.entity.SubjectTopic;
+import com.swd392.aiviva.question.repository.SubjectTopicRepository;
 import com.swd392.aiviva.user.entity.AppUser;
 import com.swd392.aiviva.user.repository.UserRepository;
 import java.time.OffsetDateTime;
@@ -28,13 +30,16 @@ public class ExamSessionServiceImpl implements ExamSessionService {
     private final ExamSessionRepository examSessionRepository;
     private final StudentSessionAssignmentRepository studentSessionAssignmentRepository;
     private final UserRepository userRepository;
+    private final SubjectTopicRepository subjectTopicRepository;
 
     public ExamSessionServiceImpl(ExamSessionRepository examSessionRepository,
                                    StudentSessionAssignmentRepository studentSessionAssignmentRepository,
-                                   UserRepository userRepository) {
+                                   UserRepository userRepository,
+                                   SubjectTopicRepository subjectTopicRepository) {
         this.examSessionRepository = examSessionRepository;
         this.studentSessionAssignmentRepository = studentSessionAssignmentRepository;
         this.userRepository = userRepository;
+        this.subjectTopicRepository = subjectTopicRepository;
     }
 
     @Override
@@ -54,12 +59,15 @@ public class ExamSessionServiceImpl implements ExamSessionService {
             }
         }
 
+        SubjectTopic topic = subjectTopicRepository.findById(request.getTopicId())
+                .orElseThrow(() -> new ResourceNotFoundException("Topic not found: " + request.getTopicId()));
         String status = (request.getStatus() != null && !request.getStatus().isBlank())
                 ? request.getStatus().trim().toUpperCase()
                 : "SCHEDULED";
 
         ExamSession examSession = ExamSession.builder()
                 .createdBy(creator)
+                .topic(topic)
                 .sessionName(request.getSessionName().trim())
                 .maxMainQuestions(request.getMaxMainQuestions())
                 .maxFollowupPerQuestion(request.getMaxFollowupPerQuestion())
@@ -90,6 +98,11 @@ public class ExamSessionServiceImpl implements ExamSessionService {
 
         if (request.getSessionName() != null && !request.getSessionName().isBlank()) {
             session.setSessionName(request.getSessionName().trim());
+        }
+        if (request.getTopicId() != null) {
+            SubjectTopic topic = subjectTopicRepository.findById(request.getTopicId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Topic not found: " + request.getTopicId()));
+            session.setTopic(topic);
         }
         if (request.getMaxMainQuestions() != null) {
             session.setMaxMainQuestions(request.getMaxMainQuestions());
@@ -217,6 +230,8 @@ public class ExamSessionServiceImpl implements ExamSessionService {
                 .sessionId(session.getSessionId())
                 .createdById(session.getCreatedBy() != null ? session.getCreatedBy().getUserId() : null)
                 .createdByName(session.getCreatedBy() != null ? session.getCreatedBy().getFullName() : null)
+                .topicId(session.getTopic() != null ? session.getTopic().getTopicId() : null)
+                .topicName(session.getTopic() != null ? session.getTopic().getTopicName() : null)
                 .sessionName(session.getSessionName())
                 .maxMainQuestions(session.getMaxMainQuestions())
                 .maxFollowupPerQuestion(session.getMaxFollowupPerQuestion())

@@ -9,4 +9,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface QuestionRepository extends JpaRepository<Question, UUID> {
     List<Question> findByTopic_TopicId(UUID topicId);
+
+    List<Question> findByApprovalStatusOrderByCreatedAtAsc(String approvalStatus);
+
+    List<Question> findByTopic_TopicIdAndApprovalStatusOrderByCreatedAtAsc(UUID topicId, String approvalStatus);
 }

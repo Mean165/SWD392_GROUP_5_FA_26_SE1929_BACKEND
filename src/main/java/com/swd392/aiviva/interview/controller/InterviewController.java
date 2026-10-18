@@ -3,6 +3,7 @@ package com.swd392.aiviva.interview.controller;
 import com.swd392.aiviva.common.response.ApiResponse;
 import com.swd392.aiviva.interview.dto.request.StartInterviewRequest;
 import com.swd392.aiviva.interview.dto.request.SubmitAnswerRequest;
+import com.swd392.aiviva.interview.dto.request.CompleteInterviewRequest;
 import com.swd392.aiviva.interview.dto.response.InteractionTurnResponse;
 import com.swd392.aiviva.interview.dto.response.InterviewResponse;
 import com.swd392.aiviva.interview.dto.response.SubmitAnswerResponse;
@@ -11,6 +12,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -66,18 +68,33 @@ public class InterviewController {
      * Finish/complete an interview attempt.
      */
     @PostMapping("/{attemptId}/complete")
-    public ResponseEntity<ApiResponse<InterviewResponse>> completeInterview(@PathVariable UUID attemptId) {
-        return ResponseEntity.ok(ApiResponse.success("Interview marked as completed", interviewService.completeInterview(attemptId)));
+    public ResponseEntity<ApiResponse<InterviewResponse>> completeInterview(
+            @PathVariable UUID attemptId,
+            @RequestBody(required = false) @Valid CompleteInterviewRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Interview marked as completed",
+                interviewService.completeInterview(attemptId,
+                        request == null ? null : request.getFullAudioDataUrl())));
     }
 
-    /**
-     * Text-To-Speech audio stream for a given question turn.
-     */
-    @GetMapping(value = "/turns/{turnId}/speech", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
-    public ResponseEntity<byte[]> getTurnSpeechAudio(@PathVariable UUID turnId) {
-        byte[] audioBytes = interviewService.getQuestionSpeechAudio(turnId);
+    /** Generates an authenticated MP3 response for the question in this turn. */
+    @GetMapping(value = "/turns/{turnId}/speech", produces = "audio/mpeg")
+    public ResponseEntity<byte[]> getTurnSpeechAudio(
+            @PathVariable UUID turnId,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String language) {
+        byte[] audioBytes = interviewService.getQuestionSpeechAudio(turnId, language);
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"question_" + turnId + ".mp3\"")
+                .contentType(MediaType.parseMediaType("audio/mpeg"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"question_" + turnId + ".mp3\"")
                 .body(audioBytes);
+    }
+
+    @GetMapping(value = "/{attemptId}/audio/{fileName}")
+    public ResponseEntity<byte[]> getInterviewAudio(
+            @PathVariable UUID attemptId, @PathVariable String fileName) {
+        InterviewService.AudioFile audio = interviewService.getInterviewAudio(attemptId, fileName);
+        return ResponseEntity.status(HttpStatus.OK)
+                .contentType(MediaType.parseMediaType(audio.contentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"")
+                .body(audio.bytes());
     }
 }
