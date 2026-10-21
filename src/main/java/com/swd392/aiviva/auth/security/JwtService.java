@@ -2,6 +2,7 @@ package com.swd392.aiviva.auth.security;
 
 import java.util.Map;
 import java.util.UUID;
+import java.time.Instant;
 
 public interface JwtService {
 
@@ -14,6 +15,8 @@ public interface JwtService {
     String extractEmail(String token);
 
     UUID extractUserId(String token);
+
+    Instant extractIssuedAt(String token);
 
     boolean isTokenValid(String token, String username);
 

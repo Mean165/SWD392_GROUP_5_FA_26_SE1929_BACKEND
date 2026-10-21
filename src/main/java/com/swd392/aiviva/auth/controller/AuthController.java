@@ -3,6 +3,7 @@ package com.swd392.aiviva.auth.controller;
 import com.swd392.aiviva.auth.dto.request.LoginRequest;
 import com.swd392.aiviva.auth.dto.request.RefreshTokenRequest;
 import com.swd392.aiviva.auth.dto.request.RegisterRequest;
+import com.swd392.aiviva.auth.dto.request.ChangePasswordRequest;
 import com.swd392.aiviva.auth.dto.response.LoginResponse;
 import com.swd392.aiviva.auth.service.AuthService;
 import com.swd392.aiviva.common.response.ApiResponse;
@@ -35,6 +36,11 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(ApiResponse.success("Login successful", authService.login(request)));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse<LoginResponse>> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Password changed successfully", authService.changePassword(request)));
     }
 
     @PostMapping("/refresh")

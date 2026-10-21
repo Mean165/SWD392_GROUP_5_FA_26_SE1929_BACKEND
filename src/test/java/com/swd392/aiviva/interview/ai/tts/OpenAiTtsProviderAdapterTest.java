@@ -10,6 +10,17 @@ import org.junit.jupiter.api.Test;
 class OpenAiTtsProviderAdapterTest {
 
     @Test
+    void selectsConfiguredVoiceForSystemLanguage() {
+        OpenAiConfig config = new OpenAiConfig();
+        config.setVoice("alloy");
+        config.setVoiceVi("voice-vi");
+        config.setVoiceEn("voice-en");
+
+        org.junit.jupiter.api.Assertions.assertEquals("voice-vi", config.getVoiceForLanguage("vi"));
+        org.junit.jupiter.api.Assertions.assertEquals("voice-en", config.getVoiceForLanguage("en"));
+    }
+
+    @Test
     void validatesQuestionTextAndRequiresRealProviderConfiguration() {
         OpenAiConfig config = new OpenAiConfig();
         config.setMaxTextLength(5);

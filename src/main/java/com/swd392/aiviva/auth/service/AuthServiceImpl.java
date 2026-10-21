@@ -3,6 +3,7 @@ package com.swd392.aiviva.auth.service;
 import com.swd392.aiviva.auth.dto.request.LoginRequest;
 import com.swd392.aiviva.auth.dto.request.RefreshTokenRequest;
 import com.swd392.aiviva.auth.dto.request.RegisterRequest;
+import com.swd392.aiviva.auth.dto.request.ChangePasswordRequest;
 import com.swd392.aiviva.auth.dto.response.LoginResponse;
 import com.swd392.aiviva.auth.security.JwtService;
 import com.swd392.aiviva.common.exception.BusinessException;
@@ -13,6 +14,8 @@ import com.swd392.aiviva.user.mapper.UserMapper;
 import com.swd392.aiviva.user.repository.RoleRepository;
 import com.swd392.aiviva.user.repository.UserRepository;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.security.core.Authentication;
@@ -90,7 +93,9 @@ public class AuthServiceImpl implements AuthService {
                 .studentOrStaffCode(studentCode)
                 .role(role)
                 .isActive(true)
+                .mustChangePassword(false)
                 .createdAt(OffsetDateTime.now())
+                .passwordChangedAt(OffsetDateTime.now().minusNanos(1_000_000))
                 .build();
 
         AppUser savedUser = userRepository.save(appUser);
@@ -112,55 +117,62 @@ public class AuthServiceImpl implements AuthService {
         if (Boolean.FALSE.equals(user.getIsActive())) {
             throw new BusinessException("User account is inactive");
         }
+        return toLoginResponse(user);
+    }
 
-        String roleName = user.getRole() != null ? user.getRole().getRoleCode() : "USER";
-        Map<String, Object> claims = Map.of(
-                "userId", user.getUserId().toString(),
-                "role", roleName,
-                "fullName", user.getFullName()
-        );
+    @Override
+    @Transactional
+    public LoginResponse changePassword(ChangePasswordRequest request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || "anonymousUser".equals(authentication.getPrincipal())) {
+            throw new BusinessException("User is not authenticated");
+        }
 
-        String token = jwtService.generateToken(user.getEmail(), claims);
+        AppUser user = userRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new BusinessException("User profile not found"));
+        if (!Boolean.TRUE.equals(user.getMustChangePassword())) {
+            throw new BusinessException("Password change is not required for this account");
+        }
 
-        return LoginResponse.builder()
-                .accessToken(token)
-                .tokenType("Bearer")
-                .expiresIn(jwtService.getExpirationTime())
-                .userId(user.getUserId())
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .studentOrStaffCode(user.getStudentOrStaffCode())
-                .roleName(roleName)
-                .user(userMapper.toResponse(user))
-                .build();
+        String newPassword = request.getNewPassword();
+        if (newPassword == null || newPassword.length() < 8 || newPassword.length() > 128) {
+            throw new BusinessException("Password must contain between 8 and 128 characters");
+        }
+        if (passwordEncoder.matches(newPassword, user.getPasswordHash())) {
+            throw new BusinessException("New password must be different from the temporary password");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setMustChangePassword(false);
+        user.setPasswordChangedAt(OffsetDateTime.now().truncatedTo(ChronoUnit.MILLIS));
+        userRepository.save(user);
+        return toLoginResponse(user);
     }
 
     @Override
     public LoginResponse refreshToken(RefreshTokenRequest request) {
         String email = jwtService.extractEmail(request.getRefreshToken());
+        if (!jwtService.isTokenValid(request.getRefreshToken(), email)) {
+            throw new BusinessException("Invalid refresh token");
+        }
         AppUser user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new BusinessException("Invalid refresh token"));
 
-        String roleName = user.getRole() != null ? user.getRole().getRoleCode() : "USER";
-        Map<String, Object> claims = Map.of(
-                "userId", user.getUserId().toString(),
-                "role", roleName,
-                "fullName", user.getFullName()
-        );
+        if (Boolean.FALSE.equals(user.getIsActive())) {
+            throw new BusinessException("User account is inactive");
+        }
+        if (Boolean.TRUE.equals(user.getMustChangePassword())) {
+            throw new BusinessException("Password change required before refreshing the session");
+        }
+        if (user.getPasswordChangedAt() != null) {
+            Instant issuedAt = jwtService.extractIssuedAt(request.getRefreshToken());
+            if (issuedAt == null || issuedAt.isBefore(user.getPasswordChangedAt().toInstant())) {
+                throw new BusinessException("Invalid refresh token");
+            }
+        }
 
-        String token = jwtService.generateToken(user.getEmail(), claims);
-
-        return LoginResponse.builder()
-                .accessToken(token)
-                .tokenType("Bearer")
-                .expiresIn(jwtService.getExpirationTime())
-                .userId(user.getUserId())
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .studentOrStaffCode(user.getStudentOrStaffCode())
-                .roleName(roleName)
-                .user(userMapper.toResponse(user))
-                .build();
+        return toLoginResponse(user);
     }
 
     @Override
@@ -192,5 +204,29 @@ public class AuthServiceImpl implements AuthService {
             candidateCode = prefix + sequence;
         }
         return candidateCode;
+    }
+
+    private LoginResponse toLoginResponse(AppUser user) {
+        String roleName = user.getRole() != null ? user.getRole().getRoleCode() : "USER";
+        boolean mustChangePassword = Boolean.TRUE.equals(user.getMustChangePassword());
+        Map<String, Object> claims = Map.of(
+                "userId", user.getUserId().toString(),
+                "role", roleName,
+                "fullName", user.getFullName()
+        );
+        String token = jwtService.generateToken(user.getEmail(), claims);
+
+        return LoginResponse.builder()
+                .accessToken(token)
+                .tokenType("Bearer")
+                .expiresIn(jwtService.getExpirationTime())
+                .userId(user.getUserId())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .studentOrStaffCode(user.getStudentOrStaffCode())
+                .roleName(roleName)
+                .mustChangePassword(mustChangePassword)
+                .user(userMapper.toResponse(user))
+                .build();
     }
 }

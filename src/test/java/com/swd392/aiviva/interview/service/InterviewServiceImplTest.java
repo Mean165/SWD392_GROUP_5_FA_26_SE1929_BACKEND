@@ -29,6 +29,9 @@ import com.swd392.aiviva.interview.repository.VivaAttemptRepository;
 import com.swd392.aiviva.question.entity.Question;
 import com.swd392.aiviva.question.repository.QuestionRepository;
 import com.swd392.aiviva.question.repository.RubricCriteriaRepository;
+import com.swd392.aiviva.system.application.SystemLanguageDefaultsProvider;
+import com.swd392.aiviva.system.domain.LanguageDefaults;
+import com.swd392.aiviva.system.enums.Language;
 import com.swd392.aiviva.user.entity.AppUser;
 import com.swd392.aiviva.user.entity.Role;
 import com.swd392.aiviva.user.repository.UserRepository;
@@ -79,6 +82,8 @@ class InterviewServiceImplTest {
     private AnswerAnalysisService answerAnalysisService;
     @Mock
     private InterviewAudioStorageService audioStorageService;
+    @Mock
+    private SystemLanguageDefaultsProvider languageDefaults;
 
     private AppUser student;
     private StudentSessionAssignment assignment;
@@ -140,7 +145,10 @@ class InterviewServiceImplTest {
                 sttService,
                 answerAnalysisService,
                 new InterviewConfig(),
-                audioStorageService);
+                audioStorageService,
+                languageDefaults);
+        lenient().when(languageDefaults.currentDefaults())
+                .thenReturn(new LanguageDefaults(Language.VI, Language.VI));
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("student@example.test", "n/a",
                         List.of(new SimpleGrantedAuthority("ROLE_ST"))));
@@ -194,6 +202,33 @@ class InterviewServiceImplTest {
         assertEquals("SUFFICIENT", retry.getAnswerClassification());
         verify(answerAnalysisService, times(1)).analyzeAnswer(any());
         verify(interactionTurnRepository, times(1)).save(turn);
+    }
+
+    @Test
+    void usesSystemSttDefaultWhenRequestDoesNotSpecifyLanguage() {
+        when(languageDefaults.currentDefaults()).thenReturn(new LanguageDefaults(Language.EN, Language.VI));
+        when(sttService.transcribe("data:audio/webm;base64,AA==", "en")).thenReturn("Recognized answer.");
+        when(audioStorageService.store(attemptId, "data:audio/webm;base64,AA=="))
+                .thenReturn(new InterviewAudioStorageService.StoredAudio("/stored/audio.webm", "audio/webm"));
+        when(answerAnalysisService.analyzeAnswer(any())).thenReturn(new AnswerAnalysisResult(
+                AnswerAnalysisResult.Classification.SUFFICIENT, "Relevant answer.", List.of(), null, List.of()));
+
+        service.submitAnswer(SubmitAnswerRequest.builder()
+                .attemptId(attemptId)
+                .turnId(turnId)
+                .audioSegmentUrl("data:audio/webm;base64,AA==")
+                .build());
+
+        verify(sttService).transcribe("data:audio/webm;base64,AA==", "en");
+    }
+
+    @Test
+    void usesRequestLanguageForTtsWhenProvidedAndSystemDefaultOtherwise() {
+        service.getQuestionSpeechAudio(turnId, null);
+        service.getQuestionSpeechAudio(turnId, "en");
+
+        verify(ttsService).synthesize("Explain the core concept.", "vi");
+        verify(ttsService).synthesize("Explain the core concept.", "en");
     }
 
     @Test

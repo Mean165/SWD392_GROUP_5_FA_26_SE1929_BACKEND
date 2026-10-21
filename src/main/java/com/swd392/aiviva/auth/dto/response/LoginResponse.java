@@ -21,5 +21,6 @@ public class LoginResponse {
     private String fullName;
     private String studentOrStaffCode;
     private String roleName;
+    private boolean mustChangePassword;
     private UserResponse user;
 }

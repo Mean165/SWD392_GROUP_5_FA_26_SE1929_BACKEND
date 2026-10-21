@@ -44,6 +44,12 @@ public class AppUser {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
+    @Column(name = "password_changed_at", nullable = false)
+    private OffsetDateTime passwordChangedAt;
+
+    @Column(name = "must_change_password", nullable = false)
+    private Boolean mustChangePassword;
+
     @Column(name = "student_or_staff_code", unique = true)
     private String studentOrStaffCode;
 

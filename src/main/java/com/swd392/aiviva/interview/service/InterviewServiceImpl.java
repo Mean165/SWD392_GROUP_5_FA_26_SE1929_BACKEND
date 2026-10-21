@@ -29,6 +29,8 @@ import com.swd392.aiviva.question.entity.Question;
 import com.swd392.aiviva.question.entity.RubricCriteria;
 import com.swd392.aiviva.question.repository.QuestionRepository;
 import com.swd392.aiviva.question.repository.RubricCriteriaRepository;
+import com.swd392.aiviva.system.application.SystemLanguageDefaultsProvider;
+import com.swd392.aiviva.system.enums.Language;
 import com.swd392.aiviva.user.entity.AppUser;
 import com.swd392.aiviva.user.repository.UserRepository;
 import java.math.BigDecimal;
@@ -67,6 +69,7 @@ public class InterviewServiceImpl implements InterviewService {
     private final AnswerAnalysisService answerAnalysisService;
     private final InterviewConfig interviewConfig;
     private final InterviewAudioStorageService audioStorageService;
+    private final SystemLanguageDefaultsProvider languageDefaults;
 
     public InterviewServiceImpl(
             VivaAttemptRepository vivaAttemptRepository,
@@ -81,7 +84,8 @@ public class InterviewServiceImpl implements InterviewService {
             SpeechToTextService sttService,
             AnswerAnalysisService answerAnalysisService,
             InterviewConfig interviewConfig,
-            InterviewAudioStorageService audioStorageService) {
+            InterviewAudioStorageService audioStorageService,
+            SystemLanguageDefaultsProvider languageDefaults) {
         this.vivaAttemptRepository = vivaAttemptRepository;
         this.interactionTurnRepository = interactionTurnRepository;
         this.assignmentRepository = assignmentRepository;
@@ -95,6 +99,7 @@ public class InterviewServiceImpl implements InterviewService {
         this.answerAnalysisService = answerAnalysisService;
         this.interviewConfig = interviewConfig;
         this.audioStorageService = audioStorageService;
+        this.languageDefaults = languageDefaults;
     }
 
     @Override
@@ -231,7 +236,7 @@ public class InterviewServiceImpl implements InterviewService {
             throw new BusinessException("Provide exactly one of transcriptText or audioSegmentUrl.");
         }
 
-        String language = normalizeLanguage(request.getLanguage());
+        String language = normalizeLanguage(request.getLanguage(), languageDefaults.currentDefaults().sttLanguage());
         String transcript = hasAudio
                 ? sttService.transcribe(request.getAudioSegmentUrl(), language)
                 : request.getTranscriptText().trim();
@@ -381,8 +386,8 @@ public class InterviewServiceImpl implements InterviewService {
         InteractionTurn turn = interactionTurnRepository.findById(turnId)
                 .orElseThrow(() -> new ResourceNotFoundException("Turn not found: " + turnId));
         assertOwner(turn.getAttempt());
-        normalizeLanguage(language);
-        return ttsService.synthesize(turn.getAiQuestionText());
+        String effectiveLanguage = normalizeLanguage(language, languageDefaults.currentDefaults().ttsLanguage());
+        return ttsService.synthesize(turn.getAiQuestionText(), effectiveLanguage);
     }
 
     @Override
@@ -424,9 +429,9 @@ public class InterviewServiceImpl implements InterviewService {
                 .build());
     }
 
-    private String normalizeLanguage(String language) {
+    private String normalizeLanguage(String language, Language defaultLanguage) {
         String normalized = language == null || language.isBlank()
-                ? interviewConfig.getLanguage() : language.trim().toLowerCase(Locale.ROOT);
+                ? defaultLanguage.name().toLowerCase(Locale.ROOT) : language.trim().toLowerCase(Locale.ROOT);
         if (!"vi".equals(normalized) && !"en".equals(normalized)) {
             throw new BusinessException("Interview language must be 'vi' or 'en'.");
         }

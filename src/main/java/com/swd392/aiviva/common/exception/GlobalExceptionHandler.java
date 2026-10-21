@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
@@ -58,6 +59,16 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ex.getMessage()));
     }
 
+    @ExceptionHandler(UnsupportedDocumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnsupportedDocument(UnsupportedDocumentException ex) {
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(DocumentTooLargeException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDocumentTooLarge(DocumentTooLargeException ex) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(ApiResponse.error(ex.getMessage()));
+    }
+
     @ExceptionHandler(AudioTooLargeException.class)
     public ResponseEntity<ApiResponse<Void>> handleAudioTooLarge(AudioTooLargeException ex) {
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
@@ -67,7 +78,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
-                .body(ApiResponse.error("Uploaded audio exceeds the maximum supported size."));
+                .body(ApiResponse.error("Uploaded file exceeds the maximum supported size."));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -77,6 +88,12 @@ public class GlobalExceptionHandler {
                 .toList();
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(String.join("; ", details)));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnreadableRequest(HttpMessageNotReadableException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error("Request body contains malformed or unsupported values"));
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
