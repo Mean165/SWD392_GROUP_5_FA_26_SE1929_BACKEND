@@ -19,6 +19,8 @@ public class OpenAiConfig {
     private String ttsModel = "tts-1";
     private String sttModel = "gpt-4o-transcribe";
     private String voice = "alloy";
+    private String voiceVi;
+    private String voiceEn;
     private String language = "vi";
     private String responseFormat = "mp3";
     private double speed = 1.0;
@@ -27,5 +29,10 @@ public class OpenAiConfig {
 
     public boolean isConfigured() {
         return key != null && !key.isBlank();
+    }
+
+    public String getVoiceForLanguage(String language) {
+        String configured = "vi".equalsIgnoreCase(language) ? voiceVi : voiceEn;
+        return configured == null || configured.isBlank() ? voice : configured;
     }
 }

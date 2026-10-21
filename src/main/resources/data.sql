@@ -1553,3 +1553,41 @@ INSERT INTO final_grade_report (report_id, attempt_id, finalized_by_lecturer_id,
 on conflict (attempt_id) do update set total_ai_score = excluded.total_ai_score, final_teacher_score = excluded.final_teacher_score, teacher_adjustment_reason = excluded.teacher_adjustment_reason, ai_overall_feedback = excluded.ai_overall_feedback, finalized_at = excluded.finalized_at;
 
 COMMIT;
+
+BEGIN;
+INSERT INTO subject (subject_id, subject_code, subject_name, assigned_lecturer_ids_json) VALUES
+('91000000-0000-4000-8000-000000000001', 'SWD392', 'Software Development Project', '["4b15e443-cf48-5b71-8fd6-4e52809ffbd5"]'::jsonb)
+ON CONFLICT (subject_id) DO NOTHING;
+
+UPDATE subject_topic SET subject_id='91000000-0000-4000-8000-000000000001'
+WHERE topic_id='3e8a7521-aaff-5633-8dad-07543ec14781';
+
+INSERT INTO question (question_id, topic_id, created_by, question_text, bloom_level, source_type,
+    approval_status, created_at, generation_metadata_json)
+VALUES
+('92000000-0000-4000-8000-000000000001', '3e8a7521-aaff-5633-8dad-07543ec14781', '4b15e443-cf48-5b71-8fd6-4e52809ffbd5',
+ 'Explain how Java handles checked exceptions and give an example.', 'UNDERSTAND', 'AI_GENERATED', 'DRAFT', now(),
+ '{"referenceAnswer":"A checked exception must be caught or declared with throws; IOException is one example.","estimatedDifficulty":2.0,"suggestedAnswerMinutes":3,"citations":[]}'::jsonb),
+('92000000-0000-4000-8000-000000000002', '3e8a7521-aaff-5633-8dad-07543ec14781', '4b15e443-cf48-5b71-8fd6-4e52809ffbd5',
+ 'Compare an interface and an abstract class in Java, and explain when you would choose each.', 'ANALYZE', 'MANUAL', 'APPROVED', now(),
+ '{"referenceAnswer":"An interface defines a contract and supports multiple implementation; an abstract class can share state and implementation.","estimatedDifficulty":3.0,"suggestedAnswerMinutes":4,"citations":[]}'::jsonb),
+('92000000-0000-4000-8000-000000000003', '3e8a7521-aaff-5633-8dad-07543ec14781', '4b15e443-cf48-5b71-8fd6-4e52809ffbd5',
+ 'Describe the purpose of the Java virtual machine.', 'REMEMBER', 'AI_GENERATED', 'REJECTED', now(),
+ '{"referenceAnswer":"Rejected sample retained for workflow state testing.","estimatedDifficulty":1.0,"suggestedAnswerMinutes":2,"citations":[]}'::jsonb)
+ON CONFLICT (question_id) DO UPDATE SET
+    question_text=excluded.question_text,
+    bloom_level=excluded.bloom_level,
+    source_type=excluded.source_type,
+    approval_status=excluded.approval_status,
+    generation_metadata_json=excluded.generation_metadata_json;
+
+INSERT INTO rubric_criteria (criteria_id, question_id, criteria_name, expected_knowledge_points, weight_ratio)
+VALUES
+('93000000-0000-4000-8000-000000000001', '92000000-0000-4000-8000-000000000001', 'Concept accuracy', 'Defines the catch-or-declare rule.', 1.00),
+('93000000-0000-4000-8000-000000000002', '92000000-0000-4000-8000-000000000002', 'Comparison', 'Compares contract, inheritance and shared implementation.', 1.00),
+('93000000-0000-4000-8000-000000000003', '92000000-0000-4000-8000-000000000003', 'Relevance', 'Answer must match the question.', 1.00)
+ON CONFLICT (criteria_id) DO UPDATE SET
+    criteria_name=excluded.criteria_name,
+    expected_knowledge_points=excluded.expected_knowledge_points,
+    weight_ratio=excluded.weight_ratio;
+COMMIT;

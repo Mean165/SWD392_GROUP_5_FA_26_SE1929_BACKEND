@@ -1,5 +1,5 @@
 -- =============================================================================
--- AI VIVA EXAMINATION SYSTEM - DATABASE SCHEMA (14 TABLES)
+-- AI VIVA EXAMINATION SYSTEM - DATABASE SCHEMA (14 original + 2 approved tables)
 -- =============================================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -20,13 +20,28 @@ CREATE TABLE IF NOT EXISTS app_user (
     full_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    password_changed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
     student_or_staff_code VARCHAR(255) UNIQUE,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_app_user_role FOREIGN KEY (role_id) REFERENCES role(role_id) ON DELETE RESTRICT
 );
 
+ALTER TABLE app_user ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE app_user ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE;
+
 -- 3. Table subject_topic
+CREATE TABLE IF NOT EXISTS subject (
+    subject_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    subject_code VARCHAR(100) UNIQUE NOT NULL,
+    subject_name VARCHAR(255) NOT NULL,
+    description TEXT,
+    assigned_lecturer_ids_json JSONB NOT NULL DEFAULT '[]'::jsonb
+);
+
+ALTER TABLE subject ADD COLUMN IF NOT EXISTS description TEXT;
+
 CREATE TABLE IF NOT EXISTS subject_topic (
     topic_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     created_by UUID NOT NULL,
@@ -34,6 +49,7 @@ CREATE TABLE IF NOT EXISTS subject_topic (
     topic_name VARCHAR(255) NOT NULL,
     description TEXT,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    subject_id UUID REFERENCES subject(subject_id) ON DELETE SET NULL,
     CONSTRAINT fk_subject_topic_creator FOREIGN KEY (created_by) REFERENCES app_user(user_id) ON DELETE RESTRICT
 );
 
@@ -58,6 +74,7 @@ CREATE TABLE IF NOT EXISTS question (
     source_type VARCHAR(50) NOT NULL,
     approval_status VARCHAR(50) NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    generation_metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
     CONSTRAINT fk_question_topic FOREIGN KEY (topic_id) REFERENCES subject_topic(topic_id) ON DELETE RESTRICT,
     CONSTRAINT fk_question_creator FOREIGN KEY (created_by) REFERENCES app_user(user_id) ON DELETE RESTRICT
 );
@@ -71,6 +88,25 @@ CREATE TABLE IF NOT EXISTS rubric_criteria (
     weight_ratio DECIMAL(3,2) NOT NULL,
     CONSTRAINT fk_rubric_criteria_question FOREIGN KEY (question_id) REFERENCES question(question_id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS question_document (
+    document_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    subject_id UUID NOT NULL REFERENCES subject(subject_id) ON DELETE CASCADE,
+    topic_id UUID NOT NULL REFERENCES subject_topic(topic_id) ON DELETE CASCADE,
+    uploaded_by UUID NOT NULL REFERENCES app_user(user_id) ON DELETE RESTRICT,
+    original_filename VARCHAR(500) NOT NULL,
+    content_type VARCHAR(255) NOT NULL,
+    file_size BIGINT NOT NULL,
+    storage_key VARCHAR(1000) NOT NULL,
+    status VARCHAR(30) NOT NULL,
+    error_reason TEXT,
+    uploaded_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    processed_at TIMESTAMPTZ
+);
+
+ALTER TABLE question ADD COLUMN IF NOT EXISTS generation_metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE subject ADD COLUMN IF NOT EXISTS assigned_lecturer_ids_json JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE subject_topic ADD COLUMN IF NOT EXISTS subject_id UUID REFERENCES subject(subject_id) ON DELETE SET NULL;
 
 -- 7. Table exam_session
 CREATE TABLE IF NOT EXISTS exam_session (

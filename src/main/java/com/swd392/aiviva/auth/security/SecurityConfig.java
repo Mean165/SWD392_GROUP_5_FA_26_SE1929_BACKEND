@@ -4,6 +4,7 @@ package com.swd392.aiviva.auth.security;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -13,6 +14,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 
 @Configuration
 @EnableWebSecurity
@@ -32,6 +34,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/login",
@@ -48,6 +51,7 @@ public class SecurityConfig {
                                 "/api/system/status",
                                 "/"
                         ).permitAll()
+                        .requestMatchers("/api/system/admin/**").hasRole("AD")
                         .requestMatchers(
                                 "/api/student/**",
                                 "/api/interviews/**"
@@ -55,6 +59,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/**").hasRole("AD")
                         .requestMatchers(
                                 HttpMethod.POST,
+                                "/api/question-generation/**",
                                 "/api/topics/**",
                                 "/api/questions/**",
                                 "/api/rubrics/**",
@@ -63,12 +68,18 @@ public class SecurityConfig {
                         ).hasAnyRole("AD", "LE")
                         .requestMatchers(
                                 HttpMethod.PUT,
+                                "/api/question-generation/**",
                                 "/api/topics/**",
                                 "/api/questions/**"
                         ).hasAnyRole("AD", "LE")
                         .requestMatchers(
                                 HttpMethod.DELETE,
+                                "/api/question-generation/**",
                                 "/api/questions/**"
+                        ).hasAnyRole("AD", "LE")
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/question-generation/**"
                         ).hasAnyRole("AD", "LE")
                         .requestMatchers(
                                 HttpMethod.GET,
@@ -87,7 +98,9 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/topics/**",
                                 "/api/questions/**",
-                                "/api/rubrics/**",
+                                "/api/rubrics/**"
+                        ).hasAnyRole("AD", "LE")
+                        .requestMatchers(
                                 "/api/exams/**",
                                 "/api/evaluations/**"
                         ).hasAnyRole("ST", "AD", "LE")

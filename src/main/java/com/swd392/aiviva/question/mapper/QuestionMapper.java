@@ -2,6 +2,7 @@ package com.swd392.aiviva.question.mapper;
 
 import com.swd392.aiviva.question.dto.response.QuestionResponse;
 import com.swd392.aiviva.question.entity.Question;
+import com.swd392.aiviva.question.enums.BloomLevel;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -16,7 +17,7 @@ public class QuestionMapper {
                 .topicId(question.getTopic() != null ? question.getTopic().getTopicId() : null)
                 .createdBy(question.getCreatedBy() != null ? question.getCreatedBy().getUserId() : null)
                 .questionText(question.getQuestionText())
-                .bloomLevel(question.getBloomLevel())
+                .bloomLevel(BloomLevel.normalizeLegacyValue(question.getBloomLevel()))
                 .sourceType(question.getSourceType())
                 .approvalStatus(question.getApprovalStatus())
                 .createdAt(question.getCreatedAt())

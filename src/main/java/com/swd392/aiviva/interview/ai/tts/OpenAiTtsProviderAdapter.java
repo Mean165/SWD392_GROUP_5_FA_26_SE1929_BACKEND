@@ -33,7 +33,7 @@ public class OpenAiTtsProviderAdapter implements TextToSpeechProviderAdapter {
 
     @Override
     public byte[] synthesize(String text) {
-        return synthesize(text, openAiConfig.getLanguage(), openAiConfig.getVoice(), openAiConfig.getSpeed(), "mp3");
+        return synthesize(text, openAiConfig.getLanguage());
     }
 
     @Override
@@ -48,7 +48,7 @@ public class OpenAiTtsProviderAdapter implements TextToSpeechProviderAdapter {
         if (!"vi".equals(effectiveLanguage) && !"en".equals(effectiveLanguage)) {
             throw new BusinessException("Interview language must be 'vi' or 'en'.");
         }
-        return synthesize(text, effectiveLanguage, openAiConfig.getVoice(), openAiConfig.getSpeed(),
+        return synthesize(text, effectiveLanguage, openAiConfig.getVoiceForLanguage(effectiveLanguage), openAiConfig.getSpeed(),
                 responseFormat);
     }
 
