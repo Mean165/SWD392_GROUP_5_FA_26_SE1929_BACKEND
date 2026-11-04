@@ -5,7 +5,7 @@ Survey date: 2026-11-04. This records upstream metadata for the selected artifac
 | Component | Candidate/version | License/provenance observed | Constraints and action |
 |---|---|---|---|
 | STT runtime | `faster-whisper 1.2.1`, `ctranslate2 4.8.5` | faster-whisper repository MIT; CTranslate2 dependency license to verify from the exact installed distribution before final packaging | Include required notices. GPU path requires CUDA 12/cuBLAS and cuDNN 9. |
-| STT weights | `openai/whisper-large-v3-turbo`, converted locally to CTranslate2 | Upstream Whisper model repository declares MIT | Use original upstream revision, record revision/hash, retain model/license metadata. Do not substitute an unreviewed third-party converted repository. |
+| STT weights | Original Whisper large-v3-turbo, converted locally to CTranslate2 | Upstream model card declares MIT | Use the pinned upstream revision, record revision/hash, retain model/license metadata. Do not substitute an unreviewed third-party converted repository. |
 | VAD | `silero-vad 6.2.3` | Upstream repository license must be included from the exact pinned release; repository currently identifies MIT | Include license/notice and pinned version. |
 | TTS runtime | `piper-tts 1.8.0` | Current OHF-Voice Piper Python engine is GPLv3 | Bundling/distributing the inference container may require providing corresponding source and GPL notices. Confirm product distribution compatibility. |
 | Vietnamese TTS voice | `vi_VN-vais1000-medium` | Piper voice repository metadata is MIT; voice card identifies VAIS-1000 source dataset under CC-BY-4.0 | Preserve attribution to source dataset and model card. Only one trained speaker/medium quality; human listening approval pending. |

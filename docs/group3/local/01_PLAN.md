@@ -5,8 +5,8 @@ The cloud-provider prompt is superseded. All speech bytes stay in the local AiVi
 ## Decisions
 
 - Keep the existing Java/Spring FE-facing `SpeechToTextProvider`, `TTSProvider`, `/ws/stt`, device-check health, and TTS endpoint contracts. Implement Java adapters that call a private local FastAPI service over loopback/internal container namespace with `X-Internal-Token`.
-- Inference stack: Python 3.11, FastAPI, faster-whisper/CTranslate2, Silero VAD, Piper. Pin the exact versions tested in the created `requirements.txt`; interrogate API signatures and run real smoke tests before finalizing.
-- STT first candidate: original OpenAI `whisper-large-v3-turbo` weights with verified upstream license, locally converted to CTranslate2, CUDA `int8_float16`, batch 1 on the RTX 3050 4GB. If real load or benchmark fails VRAM/latency acceptance, explicitly fall back to `small`/`base` CPU int8 and report the measured limitation. Do not use unverified third-party converted turbo weights.
+- Inference stack: FastAPI, faster-whisper/CTranslate2, Silero VAD, Piper. CPU image uses Python 3.11; CUDA image uses Python 3.10 from its NVIDIA Ubuntu base. Both were built and APIs exercised. Versions are in `requirements.txt` and health output.
+- STT selected model: original Whisper large-v3-turbo weights pinned and converted locally to CTranslate2; it loaded on RTX 3050 4GB with CUDA `int8_float16`. Pinned faster-whisper-base CTranslate2 weights loaded on CPU `int8` as an explicit fallback. Synthetic smoke tests ran; a real corpus is still needed for accuracy/latency acceptance.
 - VAD cuts speech segments; the internal WebSocket emits bounded-window partial hypotheses and LocalAgreement stable prefixes, then a final decode on BE `commit`/`end`. This is simulated streaming for a non-streaming Whisper model. BE endpointing is the final authority for answer-turn boundaries.
 - TTS: Piper `vi_VN-vais1000-medium` and `en_US-lessac-medium`, local cache and chunked audio. Do a real synthesis smoke test and report limitations; do not claim voice quality without user listening.
 - `STT_MODE`: `streaming_only`, `final_only`, `dual`. Default `dual` only if measured latency/resource budget allows; otherwise `streaming_only`. Reconciliation retains raw streaming/final text and stores normalized/correction data separately.
@@ -22,7 +22,7 @@ The cloud-provider prompt is superseded. All speech bytes stay in the local AiVi
 4. L3 VAD/partial/final STT with model warm-up, LocalAgreement, hallucination checks, glossary hotwords, timestamps, and synthetic edge-case tests.
 5. L4 Java local adapters, mode coordinator, ring-buffer reconnect, EXAM audio/storage policy, resource tracker, and health aggregation.
 6. L5 minimal FE health/privacy/type changes, device-check mic/speaker working locally, and interview integration without altering exam scoring responsibilities.
-7. L6 benchmark artifacts/docs. Do not claim numeric latency/accuracy targets unless measured on this machine; state whether P50/P95 goals were met.
+7. L6 benchmark pipeline/docs and synthetic smoke report are present. Full corpus, fairness analysis and product P50/P95 remain pending; a single synthetic sample is not acceptance.
 
 ## Open Risks / Assumptions
 

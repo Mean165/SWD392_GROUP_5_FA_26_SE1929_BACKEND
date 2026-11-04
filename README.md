@@ -1406,9 +1406,7 @@ Ví dụ:
 
 Hợp đồng các endpoint phỏng vấn sinh viên, audio, xác thực và giới hạn thời gian được mô tả tại [`docs/interview-api.md`](docs/interview-api.md).
 
-Hợp đồng WebSocket STT thời gian thực, cấu hình Google Cloud và quy tắc lưu transcript được mô tả tại [`docs/stt-streaming.md`](docs/stt-streaming.md).
-
-Lựa chọn provider TTS, cấu hình ZeroWeight, cache, giới hạn credit và smoke test được mô tả tại [`docs/zeroweight-tts.md`](docs/zeroweight-tts.md).
+Thiết lập STT/TTS local offline, Docker profile CPU/GPU, inference API, model license, resource health và benchmark được mô tả tại [`docs/group3/local/`](docs/group3/local/).
 
 Ví dụ Question API:
 
