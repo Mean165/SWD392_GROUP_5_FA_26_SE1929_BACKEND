@@ -1555,12 +1555,65 @@ on conflict (attempt_id) do update set total_ai_score = excluded.total_ai_score,
 COMMIT;
 
 BEGIN;
+UPDATE student_session_assignment
+SET status='CANCELLED', cancelled_reason='Seed session is cancelled'
+WHERE session_id='eb35a7f2-626d-5ee0-9a8c-34aef7890498' AND status IN ('PENDING','SCHEDULED');
+UPDATE exam_session SET updated_at=CURRENT_TIMESTAMP WHERE status IN ('SCHEDULED','IN_PROGRESS','COMPLETED','CANCELLED');
+COMMIT;
+
+-- Additional approved question seed.
+BEGIN;
+INSERT INTO question (question_id, topic_id, created_by, question_text, bloom_level, source_type, approval_status, created_at)
+SELECT uuid_generate_v5(uuid_ns_url(), 'aiviva:question:' || t.topic_code || ':CREATE'), t.topic_id,
+       t.created_by, 'Thiết kế một giải pháp mới có tính khả thi cho chủ đề ' || t.topic_name || '.',
+       'CREATE', 'LECTURER_CREATED', 'APPROVED', CURRENT_TIMESTAMP
+FROM subject_topic t
+ON CONFLICT (question_id) DO NOTHING;
+
+INSERT INTO question (question_id, topic_id, created_by, question_text, bloom_level, source_type, approval_status, created_at)
+SELECT uuid_generate_v5(uuid_ns_url(), 'aiviva:question:' || t.topic_code || ':' || l.level_code || ':2'), t.topic_id,
+       t.created_by, 'Câu hỏi bổ sung mức ' || l.level_code || ' cho chủ đề ' || t.topic_name || '.',
+       l.level_code, 'LECTURER_CREATED', 'APPROVED', CURRENT_TIMESTAMP
+FROM subject_topic t
+CROSS JOIN (VALUES ('REMEMBER'),('UNDERSTAND'),('APPLY'),('ANALYZE'),('EVALUATE'),('CREATE')) AS l(level_code)
+ON CONFLICT (question_id) DO NOTHING;
+COMMIT;
+
+BEGIN;
 INSERT INTO subject (subject_id, subject_code, subject_name, assigned_lecturer_ids_json) VALUES
 ('91000000-0000-4000-8000-000000000001', 'SWD392', 'Software Development Project', '["4b15e443-cf48-5b71-8fd6-4e52809ffbd5"]'::jsonb)
 ON CONFLICT (subject_id) DO NOTHING;
 
 UPDATE subject_topic SET subject_id='91000000-0000-4000-8000-000000000001'
 WHERE topic_id='3e8a7521-aaff-5633-8dad-07543ec14781';
+
+INSERT INTO rubric (rubric_id, subject_id, name, description, status, created_by, created_at, updated_at)
+SELECT uuid_generate_v5(uuid_ns_url(), 'aiviva:subject-rubric:' || s.subject_id::text),
+       s.subject_id, s.subject_name || ' - Rubric', 'General criteria for the whole subject.',
+       'ACTIVE', '4b15e443-cf48-5b71-8fd6-4e52809ffbd5', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+FROM subject s
+WHERE s.subject_id='91000000-0000-4000-8000-000000000001'
+  AND NOT EXISTS (SELECT 1 FROM rubric active WHERE active.subject_id=s.subject_id AND active.status='ACTIVE')
+ON CONFLICT (rubric_id) DO NOTHING;
+
+INSERT INTO rubric_criteria (criteria_id, rubric_id, criteria_name, expected_knowledge_points, weight_ratio)
+SELECT uuid_generate_v5(uuid_ns_url(), 'aiviva:subject-criterion:' || r.rubric_id::text || ':accuracy'),
+       r.rubric_id, 'Accuracy', 'The answer is factually correct and uses concepts accurately.', 0.50
+FROM rubric r WHERE r.rubric_id=uuid_generate_v5(uuid_ns_url(),
+    'aiviva:subject-rubric:91000000-0000-4000-8000-000000000001')
+ON CONFLICT (criteria_id) DO NOTHING;
+INSERT INTO rubric_criteria (criteria_id, rubric_id, criteria_name, expected_knowledge_points, weight_ratio)
+SELECT uuid_generate_v5(uuid_ns_url(), 'aiviva:subject-criterion:' || r.rubric_id::text || ':reasoning'),
+       r.rubric_id, 'Reasoning', 'The answer explains relevant reasoning and connects supporting ideas.', 0.30
+FROM rubric r WHERE r.rubric_id=uuid_generate_v5(uuid_ns_url(),
+    'aiviva:subject-rubric:91000000-0000-4000-8000-000000000001')
+ON CONFLICT (criteria_id) DO NOTHING;
+INSERT INTO rubric_criteria (criteria_id, rubric_id, criteria_name, expected_knowledge_points, weight_ratio)
+SELECT uuid_generate_v5(uuid_ns_url(), 'aiviva:subject-criterion:' || r.rubric_id::text || ':evidence'),
+       r.rubric_id, 'Evidence', 'Examples or evidence are relevant and support the response.', 0.20
+FROM rubric r WHERE r.rubric_id=uuid_generate_v5(uuid_ns_url(),
+    'aiviva:subject-rubric:91000000-0000-4000-8000-000000000001')
+ON CONFLICT (criteria_id) DO NOTHING;
 
 INSERT INTO question (question_id, topic_id, created_by, question_text, bloom_level, source_type,
     approval_status, created_at, generation_metadata_json)

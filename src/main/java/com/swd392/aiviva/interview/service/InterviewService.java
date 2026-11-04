@@ -7,6 +7,8 @@ import com.swd392.aiviva.interview.dto.response.InterviewResponse;
 import com.swd392.aiviva.interview.dto.response.SubmitAnswerResponse;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Consumer;
+import com.swd392.aiviva.interview.ai.tts.TTSStreamInfo;
 
 public interface InterviewService {
 
@@ -25,6 +27,17 @@ public interface InterviewService {
     byte[] getQuestionSpeechAudio(UUID turnId);
 
     byte[] getQuestionSpeechAudio(UUID turnId, String language);
+
+    TTSStreamInfo streamQuestionSpeechAudio(UUID turnId, String language, Consumer<byte[]> audioChunkConsumer);
+
+    TTSStreamInfo questionSpeechStreamFormat();
+
+    PreparedSpeech prepareQuestionSpeech(UUID turnId, String language);
+
+    TTSStreamInfo streamPreparedQuestionSpeech(PreparedSpeech speech, Consumer<byte[]> audioChunkConsumer);
+
+    record PreparedSpeech(String text, String language, String turnType) {
+    }
 
     AudioFile getInterviewAudio(UUID attemptId, String filename);
 

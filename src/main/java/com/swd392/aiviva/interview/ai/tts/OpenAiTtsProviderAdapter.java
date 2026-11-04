@@ -10,10 +10,12 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 @Component
+@ConditionalOnProperty(prefix = "speech.tts", name = "provider", havingValue = "openai", matchIfMissing = true)
 public class OpenAiTtsProviderAdapter implements TextToSpeechProviderAdapter {
 
     private static final Logger log = LoggerFactory.getLogger(OpenAiTtsProviderAdapter.class);
@@ -29,6 +31,37 @@ public class OpenAiTtsProviderAdapter implements TextToSpeechProviderAdapter {
         this.restClient = RestClient.builder()
                 .requestFactory(requestFactory)
                 .build();
+    }
+
+    @Override
+    public String providerName() {
+        return "openai";
+    }
+
+    @Override
+    public boolean isAvailable() {
+        return openAiConfig.isConfigured();
+    }
+
+    @Override
+    public String defaultResponseFormat() {
+        return openAiConfig.getResponseFormat();
+    }
+
+    @Override
+    public TTSStreamInfo streamFormat() {
+        return new TTSStreamInfo("audio/mpeg", "encoded-audio", 0, 0, 0);
+    }
+
+    @Override
+    public String cacheVariant(String language, String responseFormat) {
+        String effectiveLanguage = language == null || language.isBlank()
+                ? openAiConfig.getLanguage() : language.trim().toLowerCase(java.util.Locale.ROOT);
+        String effectiveFormat = responseFormat == null || responseFormat.isBlank()
+                ? openAiConfig.getResponseFormat() : responseFormat;
+        return String.join("|", providerName(), openAiConfig.getTtsModel(), effectiveLanguage,
+                openAiConfig.getVoiceForLanguage(effectiveLanguage), Double.toString(openAiConfig.getSpeed()),
+                effectiveFormat.toLowerCase(java.util.Locale.ROOT));
     }
 
     @Override

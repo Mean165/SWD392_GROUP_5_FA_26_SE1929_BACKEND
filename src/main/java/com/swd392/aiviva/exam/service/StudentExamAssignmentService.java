@@ -26,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class StudentExamAssignmentService {
 
     private static final Set<String> ASSIGNMENT_STATUSES =
-            Set.of("PENDING", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "SUBMITTED", "ABSENT");
+            Set.of("PENDING", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "ABSENT", "CANCELLED");
 
     private final StudentSessionAssignmentRepository assignmentRepository;
     private final UserRepository userRepository;
@@ -51,8 +51,9 @@ public class StudentExamAssignmentService {
             throw new BusinessException("'from' must not be after 'to'.");
         }
 
+        String normalizedStatus = normalizeStatus(status);
         Page<StudentExamAssignmentResponse> result = assignmentRepository.findStudentSchedule(
-                currentStudentId(), fromTime, toTime, normalizeStatus(status),
+                currentStudentId(), fromTime, toTime, normalizedStatus, normalizedStatus != null,
                 pageRequest(page, size, Sort.by(Sort.Direction.ASC, "scheduledTime")));
         return pageResponse(result);
     }
@@ -105,8 +106,10 @@ public class StudentExamAssignmentService {
             return null;
         }
         String normalized = status.trim().toUpperCase(Locale.ROOT);
+        if ("ALL".equals(normalized)) return null;
         if (!ASSIGNMENT_STATUSES.contains(normalized)) {
-            throw new BusinessException("Unsupported assignment status.");
+            throw new com.swd392.aiviva.common.exception.InvalidRequestParameterException(
+                    "status", "INVALID_ASSIGNMENT_STATUS", "Unsupported assignment status.");
         }
         return normalized;
     }

@@ -7,6 +7,7 @@ import com.swd392.aiviva.interview.dto.request.CompleteInterviewRequest;
 import com.swd392.aiviva.interview.dto.response.InteractionTurnResponse;
 import com.swd392.aiviva.interview.dto.response.InterviewResponse;
 import com.swd392.aiviva.interview.dto.response.SubmitAnswerResponse;
+import com.swd392.aiviva.interview.ai.tts.TtsAudioFormat;
 import com.swd392.aiviva.interview.service.InterviewService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -15,6 +16,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -77,15 +79,44 @@ public class InterviewController {
     }
 
     /** Generates an authenticated MP3 response for the question in this turn. */
-    @GetMapping(value = "/turns/{turnId}/speech", produces = "audio/mpeg")
+    @GetMapping(value = "/turns/{turnId}/speech", produces = {"audio/mpeg", "audio/wav"})
     public ResponseEntity<byte[]> getTurnSpeechAudio(
             @PathVariable UUID turnId,
             @org.springframework.web.bind.annotation.RequestParam(required = false) String language) {
         byte[] audioBytes = interviewService.getQuestionSpeechAudio(turnId, language);
+        String contentType = TtsAudioFormat.contentType(audioBytes);
+        String extension = TtsAudioFormat.extension(audioBytes);
         return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType("audio/mpeg"))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"question_" + turnId + ".mp3\"")
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=\"question_" + turnId + "." + extension + "\"")
                 .body(audioBytes);
+    }
+
+    /** Streams raw PCM for a generated follow-up; text and audio remain server-side until sent. */
+    @GetMapping(value = "/turns/{turnId}/speech/stream")
+    public ResponseEntity<StreamingResponseBody> streamTurnSpeechAudio(
+            @PathVariable UUID turnId,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String language) {
+        var speech = interviewService.prepareQuestionSpeech(turnId, language);
+        var streamFormat = interviewService.questionSpeechStreamFormat();
+        StreamingResponseBody body = outputStream -> {
+            interviewService.streamPreparedQuestionSpeech(speech, chunk -> {
+                try {
+                    outputStream.write(chunk);
+                    outputStream.flush();
+                } catch (java.io.IOException exception) {
+                    throw new java.io.UncheckedIOException(exception);
+                }
+            });
+        };
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(streamFormat.contentType()))
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .header("X-Audio-Encoding", streamFormat.encoding())
+                .header("X-Audio-Sample-Rate", Integer.toString(streamFormat.sampleRate()))
+                .header("X-Audio-Channels", Integer.toString(streamFormat.channels()))
+                .body(body);
     }
 
     @GetMapping(value = "/{attemptId}/audio/{fileName}")

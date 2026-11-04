@@ -56,7 +56,7 @@ class DeviceCheckServiceImplTest {
         for (int index = 0; index < 11; index++) {
             service.getConfig();
         }
-        when(textToSpeechService.synthesize(properties.getTtsSample().get("vi"), "vi", "mp3"))
+        when(textToSpeechService.synthesize(properties.getTtsSample().get("vi"), "vi"))
                 .thenReturn(new byte[] {1});
         assertEquals(1, service.synthesizeTest(studentId, "vi").length);
     }
@@ -64,12 +64,12 @@ class DeviceCheckServiceImplTest {
     @Test
     void ttsUsesFixedSampleAndCachesAudio() {
         byte[] audio = {1, 2, 3};
-        when(textToSpeechService.synthesize(properties.getTtsSample().get("vi"), "vi", "mp3"))
+        when(textToSpeechService.synthesize(properties.getTtsSample().get("vi"), "vi"))
                 .thenReturn(audio);
 
         assertEquals(3, service.synthesizeTest(studentId, "vi").length);
         assertEquals(3, service.synthesizeTest(studentId, "vi").length);
-        verify(textToSpeechService).synthesize(properties.getTtsSample().get("vi"), "vi", "mp3");
+        verify(textToSpeechService).synthesize(properties.getTtsSample().get("vi"), "vi");
     }
 
     @Test
@@ -80,7 +80,7 @@ class DeviceCheckServiceImplTest {
 
     @Test
     void ttsProviderFailureIsSanitizedAsBadGateway() {
-        when(textToSpeechService.synthesize(properties.getTtsSample().get("vi"), "vi", "mp3"))
+        when(textToSpeechService.synthesize(properties.getTtsSample().get("vi"), "vi"))
                 .thenThrow(new ExternalServiceException("internal provider detail"));
 
         ExternalServiceException exception = assertThrows(ExternalServiceException.class,
@@ -179,7 +179,7 @@ class DeviceCheckServiceImplTest {
 
     @Test
     void requestLimitIsSharedPerUserAcrossTtsAndSttButNotAcrossUsers() {
-        when(textToSpeechService.synthesize(properties.getTtsSample().get("vi"), "vi", "mp3"))
+        when(textToSpeechService.synthesize(properties.getTtsSample().get("vi"), "vi"))
                 .thenReturn(new byte[] {1});
         UUID otherStudentId = UUID.randomUUID();
         for (int index = 0; index < 10; index++) {

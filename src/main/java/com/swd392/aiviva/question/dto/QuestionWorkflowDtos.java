@@ -31,7 +31,7 @@ public final class QuestionWorkflowDtos {
 
     public record EditQuestionRequest(@NotNull @Size(min = 5, max = 5000) String questionText,
             @Size(max = 10000) String referenceAnswer,
-            @NotNull @Pattern(regexp = "(?i)\\s*(REMEMBER|UNDERSTAND|APPLY|ANALYZE|EVALUATE)\\s*") String bloomLevel,
+            @NotNull @Pattern(regexp = "(?i)\\s*(REMEMBER|UNDERSTAND|APPLY|ANALYZE|EVALUATE|CREATE)\\s*") String bloomLevel,
             BigDecimal estimatedDifficulty,
             @Min(1) @Max(60) Integer suggestedAnswerMinutes,
             List<CriterionInput> rubric) {}

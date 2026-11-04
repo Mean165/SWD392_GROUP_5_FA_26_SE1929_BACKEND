@@ -2,6 +2,8 @@ package com.swd392.aiviva.auth.security;
 
 import com.swd392.aiviva.user.entity.AppUser;
 import com.swd392.aiviva.user.repository.UserRepository;
+import com.swd392.aiviva.common.response.ApiResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -78,6 +80,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         && (!"POST".equalsIgnoreCase(request.getMethod())
                         || !"/api/auth/change-password".equals(request.getServletPath()))) {
                     response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    response.setContentType("application/json");
+                    response.setCharacterEncoding("UTF-8");
+                    new ObjectMapper().findAndRegisterModules().writeValue(response.getOutputStream(), ApiResponse.error("Password change is required", "ACCESS_DENIED"));
                     return;
                 }
             }
@@ -88,6 +93,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private void rejectInvalidToken(HttpServletResponse response) {
         response.setHeader("WWW-Authenticate", "Bearer error=\"invalid_token\"");
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        try {
+            new ObjectMapper().findAndRegisterModules().writeValue(response.getOutputStream(), ApiResponse.error("Bearer token is invalid or expired", "AUTH_INVALID"));
+        } catch (IOException ignored) {
+            // The response may already be committed by the servlet container.
+        }
     }
 
     private boolean tokenPredatesPasswordChange(AppUser user, String token) {

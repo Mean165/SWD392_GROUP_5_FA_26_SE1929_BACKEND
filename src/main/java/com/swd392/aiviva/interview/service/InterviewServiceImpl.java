@@ -8,6 +8,7 @@ import com.swd392.aiviva.exam.entity.ExamSession;
 import com.swd392.aiviva.exam.entity.StudentSessionAssignment;
 import com.swd392.aiviva.exam.repository.StudentSessionAssignmentRepository;
 import com.swd392.aiviva.exam.service.ExamEntryEligibility;
+import com.swd392.aiviva.exam.service.ExamStateMachine;
 import com.swd392.aiviva.interview.dto.request.StartInterviewRequest;
 import com.swd392.aiviva.interview.dto.request.SubmitAnswerRequest;
 import com.swd392.aiviva.interview.dto.response.AiAssessmentResponse;
@@ -29,6 +30,8 @@ import com.swd392.aiviva.question.entity.Question;
 import com.swd392.aiviva.question.entity.RubricCriteria;
 import com.swd392.aiviva.question.repository.QuestionRepository;
 import com.swd392.aiviva.question.repository.RubricCriteriaRepository;
+import com.swd392.aiviva.question.service.RubricResolver;
+import com.swd392.aiviva.interview.entity.AttemptQuestionPlan;
 import com.swd392.aiviva.system.application.SystemLanguageDefaultsProvider;
 import com.swd392.aiviva.system.enums.Language;
 import com.swd392.aiviva.user.entity.AppUser;
@@ -44,6 +47,8 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
+import com.swd392.aiviva.interview.ai.tts.TTSStreamInfo;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -70,6 +75,8 @@ public class InterviewServiceImpl implements InterviewService {
     private final InterviewConfig interviewConfig;
     private final InterviewAudioStorageService audioStorageService;
     private final SystemLanguageDefaultsProvider languageDefaults;
+    private final RubricResolver rubricResolver;
+    private final QuestionPlanService questionPlanService;
 
     public InterviewServiceImpl(
             VivaAttemptRepository vivaAttemptRepository,
@@ -86,6 +93,29 @@ public class InterviewServiceImpl implements InterviewService {
             InterviewConfig interviewConfig,
             InterviewAudioStorageService audioStorageService,
             SystemLanguageDefaultsProvider languageDefaults) {
+        this(vivaAttemptRepository, interactionTurnRepository, assignmentRepository, questionRepository, rubricCriteriaRepository,
+                rubricAssessmentRepository, acousticFluencyMetricRepository, userRepository, ttsService, sttService,
+                answerAnalysisService, interviewConfig, audioStorageService, languageDefaults, null, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public InterviewServiceImpl(
+            VivaAttemptRepository vivaAttemptRepository,
+            InteractionTurnRepository interactionTurnRepository,
+            StudentSessionAssignmentRepository assignmentRepository,
+            QuestionRepository questionRepository,
+            RubricCriteriaRepository rubricCriteriaRepository,
+            AiRubricAssessmentRepository rubricAssessmentRepository,
+            AcousticFluencyMetricRepository acousticFluencyMetricRepository,
+            UserRepository userRepository,
+            TextToSpeechService ttsService,
+            SpeechToTextService sttService,
+            AnswerAnalysisService answerAnalysisService,
+            InterviewConfig interviewConfig,
+            InterviewAudioStorageService audioStorageService,
+            SystemLanguageDefaultsProvider languageDefaults,
+            RubricResolver rubricResolver,
+            QuestionPlanService questionPlanService) {
         this.vivaAttemptRepository = vivaAttemptRepository;
         this.interactionTurnRepository = interactionTurnRepository;
         this.assignmentRepository = assignmentRepository;
@@ -100,22 +130,23 @@ public class InterviewServiceImpl implements InterviewService {
         this.interviewConfig = interviewConfig;
         this.audioStorageService = audioStorageService;
         this.languageDefaults = languageDefaults;
+        this.rubricResolver = rubricResolver;
+        this.questionPlanService = questionPlanService;
     }
 
     @Override
     @Transactional(noRollbackFor = AttemptExpiredException.class)
     public InterviewResponse startInterview(StartInterviewRequest request) {
         AppUser student = currentStudent();
-        StudentSessionAssignment assignment = assignmentRepository
-                .findBySessionAndStudentForUpdate(request.getSessionId(), student.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("No scheduled assignment found for this session and student"));
+        StudentSessionAssignment assignment = request.getAssignmentId() != null
+                ? assignmentRepository.findOwnedAssignmentForUpdate(request.getAssignmentId(), student.getUserId())
+                    .orElseThrow(() -> new ResourceNotFoundException("No scheduled assignment found for this student"))
+                : assignmentRepository.findBySessionAndStudentForUpdate(request.getSessionId(), student.getUserId())
+                    .orElseThrow(() -> new ResourceNotFoundException("No scheduled assignment found for this session and student"));
         com.swd392.aiviva.exam.dto.response.ExamEntryEligibilityResponse eligibility =
                 ExamEntryEligibility.evaluate(assignment, OffsetDateTime.now());
         if (!eligibility.isCanEnter()) {
             throw new BusinessException(eligibility.getReason());
-        }
-        if (assignment.getExamSession().getTopic() == null) {
-            throw new BusinessException("An interview topic must be configured for this exam session.");
         }
 
         VivaAttempt attempt = vivaAttemptRepository.findByAssignment_AssignmentId(assignment.getAssignmentId())
@@ -136,11 +167,17 @@ public class InterviewServiceImpl implements InterviewService {
             attempt = vivaAttemptRepository.save(attempt);
         }
         if (!"IN_PROGRESS".equalsIgnoreCase(assignment.getStatus())) {
+            ExamStateMachine.requireAssignmentTransition(assignment.getStatus(), "IN_PROGRESS");
             assignment.setStatus("IN_PROGRESS");
             assignmentRepository.save(assignment);
         }
+        if (assignment.getExamSession() != null && "SCHEDULED".equalsIgnoreCase(assignment.getExamSession().getStatus())) {
+            assignment.getExamSession().setStatus("IN_PROGRESS");
+        }
 
         List<InteractionTurn> existingTurns = interactionTurnRepository.findByAttempt_AttemptIdOrderByTurnOrderAsc(attempt.getAttemptId());
+        List<AttemptQuestionPlan> questionPlan = questionPlanService == null || assignment.getExamSession().getTopic() == null
+                ? List.of() : questionPlanService.generatePlan(attempt);
         if (expireAttemptIfNeeded(attempt, existingTurns.isEmpty() ? null : existingTurns.get(existingTurns.size() - 1))) {
             throw new AttemptExpiredException("This interview has expired.");
         }
@@ -148,12 +185,14 @@ public class InterviewServiceImpl implements InterviewService {
 
         if (existingTurns.isEmpty()) {
             Set<UUID> previousQuestionIds = previousStudentQuestionIds(assignment);
-            Optional<Question> firstQuestion = questionRepository
-                    .findByTopic_TopicIdAndApprovalStatusOrderByCreatedAtAsc(
-                            assignment.getExamSession().getTopic().getTopicId(), "APPROVED")
-                    .stream()
+            List<Question> eligibleQuestions = assignment.getExamSession().getTopic() == null
+                    ? questionRepository.findByApprovalStatusOrderByCreatedAtAsc("APPROVED")
+                    : questionRepository.findByTopic_TopicIdAndApprovalStatusOrderByCreatedAtAsc(
+                            assignment.getExamSession().getTopic().getTopicId(), "APPROVED");
+            Optional<Question> firstQuestion = (questionPlan.isEmpty() ? eligibleQuestions.stream()
                     .filter(question -> !previousQuestionIds.contains(question.getQuestionId()))
-                    .findFirst();
+                    .filter(this::hasEffectiveRubric)
+                    .findFirst() : questionPlan.stream().findFirst().map(AttemptQuestionPlan::getQuestion));
             if (firstQuestion.isEmpty()) {
                 throw new BusinessException("No approved questions are available for this interview.");
             }
@@ -257,9 +296,14 @@ public class InterviewServiceImpl implements InterviewService {
                         && t.getMainQuestion().getQuestionId().equals(turn.getMainQuestion().getQuestionId()))
                 .count();
 
-        List<RubricCriteria> criteria = turn.getMainQuestion() == null
-                ? List.of()
-                : rubricCriteriaRepository.findByQuestion_QuestionId(turn.getMainQuestion().getQuestionId());
+        List<RubricCriteria> criteria;
+        if (turn.getMainQuestion() == null) {
+            criteria = List.of();
+        } else if (rubricResolver != null && turn.getMainQuestion().getTopic() != null) {
+            criteria = rubricResolver.resolveForQuestion(turn.getMainQuestion().getQuestionId());
+        } else {
+            criteria = rubricCriteriaRepository.findByQuestion_QuestionId(turn.getMainQuestion().getQuestionId());
+        }
         OffsetDateTime now = OffsetDateTime.now();
         long remainingSeconds = remainingSeconds(attempt, turn, now);
         List<AnswerAnalysisContext.PreviousTurn> previousTurns = allTurns.stream()
@@ -326,13 +370,25 @@ public class InterviewServiceImpl implements InterviewService {
                     .map(Question::getQuestionId)
                     .toList();
             Set<UUID> previousQuestionIds = previousStudentQuestionIds(attempt.getAssignment());
-            Optional<Question> nextQuestion = mainQuestionsAsked < maxMain
-                    ? questionRepository.findByTopic_TopicIdAndApprovalStatusOrderByCreatedAtAsc(
-                                    session.getTopic().getTopicId(), "APPROVED").stream()
-                            .filter(question -> !askedIds.contains(question.getQuestionId()))
-                            .filter(question -> !previousQuestionIds.contains(question.getQuestionId()))
-                            .findFirst()
-                    : Optional.empty();
+            Optional<Question> nextQuestion;
+            if (mainQuestionsAsked >= maxMain) {
+                nextQuestion = Optional.empty();
+            } else if (questionPlanService != null && session.getTopic() != null) {
+                List<AttemptQuestionPlan> plan = questionPlanService.generatePlan(attempt);
+                int nextPosition = Math.toIntExact(mainQuestionsAsked + 1);
+                nextQuestion = plan.stream().filter(item -> item.getPosition() == nextPosition)
+                        .map(AttemptQuestionPlan::getQuestion).findFirst();
+            } else {
+                List<Question> eligibleQuestions = session.getTopic() == null
+                        ? questionRepository.findByApprovalStatusOrderByCreatedAtAsc("APPROVED")
+                        : questionRepository.findByTopic_TopicIdAndApprovalStatusOrderByCreatedAtAsc(
+                                        session.getTopic().getTopicId(), "APPROVED");
+                nextQuestion = eligibleQuestions.stream()
+                        .filter(question -> !askedIds.contains(question.getQuestionId()))
+                        .filter(question -> !previousQuestionIds.contains(question.getQuestionId()))
+                        .filter(this::hasEffectiveRubric)
+                        .findFirst();
+            }
             if (nextQuestion.isPresent()) {
                 Question question = nextQuestion.get();
                 nextTurn = saveTurn(attempt, question, allTurns.size() + 1, "MAIN", question.getQuestionText());
@@ -392,6 +448,35 @@ public class InterviewServiceImpl implements InterviewService {
 
     @Override
     @Transactional(readOnly = true)
+    public TTSStreamInfo streamQuestionSpeechAudio(UUID turnId, String language, Consumer<byte[]> audioChunkConsumer) {
+        return streamPreparedQuestionSpeech(prepareQuestionSpeech(turnId, language), audioChunkConsumer);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PreparedSpeech prepareQuestionSpeech(UUID turnId, String language) {
+        InteractionTurn turn = interactionTurnRepository.findById(turnId)
+                .orElseThrow(() -> new ResourceNotFoundException("Turn not found: " + turnId));
+        assertOwner(turn.getAttempt());
+        String effectiveLanguage = normalizeLanguage(language, languageDefaults.currentDefaults().ttsLanguage());
+        return new PreparedSpeech(turn.getAiQuestionText(), effectiveLanguage, turn.getTurnType());
+    }
+
+    @Override
+    public TTSStreamInfo streamPreparedQuestionSpeech(PreparedSpeech speech, Consumer<byte[]> audioChunkConsumer) {
+        if (!"FOLLOW_UP".equalsIgnoreCase(speech.turnType())) {
+            throw new AccessDeniedException("Only dynamic follow-up speech can use the streaming TTS endpoint.");
+        }
+        return ttsService.stream(speech.text(), speech.language(), audioChunkConsumer);
+    }
+
+    @Override
+    public TTSStreamInfo questionSpeechStreamFormat() {
+        return ttsService.streamFormat();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public AudioFile getInterviewAudio(UUID attemptId, String filename) {
         VivaAttempt attempt = vivaAttemptRepository.findById(attemptId)
                 .orElseThrow(() -> new ResourceNotFoundException("Viva attempt not found: " + attemptId));
@@ -411,6 +496,18 @@ public class InterviewServiceImpl implements InterviewService {
         }
         return new AudioFile(audioStorageService.read(filename),
                 audioStorageService.mediaType(filename).toString());
+    }
+
+    private boolean hasEffectiveRubric(Question question) {
+        if (rubricResolver == null || question == null || question.getTopic() == null) {
+            return true;
+        }
+        try {
+            rubricResolver.resolveForQuestion(question.getQuestionId());
+            return true;
+        } catch (BusinessException ex) {
+            return false;
+        }
     }
 
     private void saveAcousticMetrics(InteractionTurn turn, Integer audioDurationSeconds) {
@@ -480,7 +577,7 @@ public class InterviewServiceImpl implements InterviewService {
         if (questionText == null || questionText.isBlank() || questionText.length() > 4000) {
             throw new BusinessException("AI generated an invalid interview question.");
         }
-        return interactionTurnRepository.save(InteractionTurn.builder()
+        InteractionTurn saved = interactionTurnRepository.save(InteractionTurn.builder()
                 .attempt(attempt)
                 .mainQuestion(mainQuestion)
                 .turnOrder(order)
@@ -488,6 +585,11 @@ public class InterviewServiceImpl implements InterviewService {
                 .aiQuestionText(questionText.trim())
                 .createdAt(OffsetDateTime.now())
                 .build());
+        String ttsLanguage = languageDefaults.currentDefaults().ttsLanguage().name().toLowerCase(Locale.ROOT);
+        if ("MAIN".equalsIgnoreCase(type)) {
+            ttsService.prewarm(saved.getAiQuestionText(), ttsLanguage);
+        }
+        return saved;
     }
 
     private SubmitAnswerResponse toSubmitAnswerResponse(
@@ -580,8 +682,16 @@ public class InterviewServiceImpl implements InterviewService {
         vivaAttemptRepository.save(attempt);
         if (attempt.getAssignment() != null
                 && !"COMPLETED".equalsIgnoreCase(attempt.getAssignment().getStatus())) {
+            ExamStateMachine.requireAssignmentTransition(attempt.getAssignment().getStatus(), "COMPLETED");
             attempt.getAssignment().setStatus("COMPLETED");
             assignmentRepository.save(attempt.getAssignment());
+        }
+        if (attempt.getAssignment() != null && attempt.getAssignment().getExamSession() != null) {
+            var assignments = assignmentRepository.findByExamSessionSessionId(attempt.getAssignment().getExamSession().getSessionId());
+            boolean finished = !assignments.isEmpty() && assignments.stream().allMatch(a -> Set.of("COMPLETED", "ABSENT", "CANCELLED").contains(a.getStatus().toUpperCase(Locale.ROOT)));
+            if (finished) {
+                attempt.getAssignment().getExamSession().setStatus("COMPLETED");
+            }
         }
     }
 
@@ -651,6 +761,8 @@ public class InterviewServiceImpl implements InterviewService {
                 .endTime(attempt.getEndTime())
                 .currentTurn(currentTurn != null ? toTurnResponse(currentTurn) : null)
                 .turns(turnResponses)
+                .totalMainQuestions(assignment != null && assignment.getSession() != null ? assignment.getSession().getMaxMainQuestions() : null)
+                .currentMainPosition(currentTurn == null ? null : Math.toIntExact(turns.stream().filter(t -> "MAIN".equalsIgnoreCase(t.getTurnType()) && t.getTurnOrder() <= currentTurn.getTurnOrder()).count()))
                 .build();
     }
 

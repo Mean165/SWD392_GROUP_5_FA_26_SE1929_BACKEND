@@ -17,7 +17,7 @@ public class QuestionMapper {
                 .topicId(question.getTopic() != null ? question.getTopic().getTopicId() : null)
                 .createdBy(question.getCreatedBy() != null ? question.getCreatedBy().getUserId() : null)
                 .questionText(question.getQuestionText())
-                .bloomLevel(BloomLevel.normalizeLegacyValue(question.getBloomLevel()))
+                .bloomLevel(question.getBloomLevel() == null ? null : BloomLevel.parse(question.getBloomLevel()).name())
                 .sourceType(question.getSourceType())
                 .approvalStatus(question.getApprovalStatus())
                 .createdAt(question.getCreatedAt())
