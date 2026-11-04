@@ -11,13 +11,11 @@ import com.swd392.aiviva.exam.service.ExamEntryEligibility;
 import com.swd392.aiviva.exam.service.ExamStateMachine;
 import com.swd392.aiviva.interview.dto.request.StartInterviewRequest;
 import com.swd392.aiviva.interview.dto.request.SubmitAnswerRequest;
-import com.swd392.aiviva.interview.dto.response.AiAssessmentResponse;
 import com.swd392.aiviva.interview.dto.response.InteractionTurnResponse;
 import com.swd392.aiviva.interview.dto.response.InterviewResponse;
 import com.swd392.aiviva.interview.dto.response.SubmitAnswerResponse;
 import com.swd392.aiviva.interview.dto.AnswerAnalysisContext;
 import com.swd392.aiviva.interview.dto.AnswerAnalysisResult;
-import com.swd392.aiviva.interview.entity.AiRubricAssessment;
 import com.swd392.aiviva.interview.entity.InteractionTurn;
 import com.swd392.aiviva.interview.entity.AcousticFluencyMetric;
 import com.swd392.aiviva.interview.entity.VivaAttempt;
@@ -66,7 +64,6 @@ public class InterviewServiceImpl implements InterviewService {
     private final StudentSessionAssignmentRepository assignmentRepository;
     private final QuestionRepository questionRepository;
     private final RubricCriteriaRepository rubricCriteriaRepository;
-    private final AiRubricAssessmentRepository rubricAssessmentRepository;
     private final AcousticFluencyMetricRepository acousticFluencyMetricRepository;
     private final UserRepository userRepository;
     private final TextToSpeechService ttsService;
@@ -121,7 +118,6 @@ public class InterviewServiceImpl implements InterviewService {
         this.assignmentRepository = assignmentRepository;
         this.questionRepository = questionRepository;
         this.rubricCriteriaRepository = rubricCriteriaRepository;
-        this.rubricAssessmentRepository = rubricAssessmentRepository;
         this.acousticFluencyMetricRepository = acousticFluencyMetricRepository;
         this.userRepository = userRepository;
         this.ttsService = ttsService;
@@ -296,14 +292,6 @@ public class InterviewServiceImpl implements InterviewService {
                         && t.getMainQuestion().getQuestionId().equals(turn.getMainQuestion().getQuestionId()))
                 .count();
 
-        List<RubricCriteria> criteria;
-        if (turn.getMainQuestion() == null) {
-            criteria = List.of();
-        } else if (rubricResolver != null && turn.getMainQuestion().getTopic() != null) {
-            criteria = rubricResolver.resolveForQuestion(turn.getMainQuestion().getQuestionId());
-        } else {
-            criteria = rubricCriteriaRepository.findByQuestion_QuestionId(turn.getMainQuestion().getQuestionId());
-        }
         OffsetDateTime now = OffsetDateTime.now();
         long remainingSeconds = remainingSeconds(attempt, turn, now);
         List<AnswerAnalysisContext.PreviousTurn> previousTurns = allTurns.stream()
@@ -314,19 +302,12 @@ public class InterviewServiceImpl implements InterviewService {
                 .map(previous -> new AnswerAnalysisContext.PreviousTurn(
                         previous.getTurnType(), previous.getAiQuestionText(), previous.getTranscriptText()))
                 .toList();
-        List<AnswerAnalysisContext.RubricItem> rubric = criteria.stream()
-                .map(item -> new AnswerAnalysisContext.RubricItem(
-                        criteria.indexOf(item), item.getCriteriaName(), item.getExpectedKnowledgePoints(),
-                        item.getWeightRatio() == null ? 0 : item.getWeightRatio().doubleValue()))
-                .toList();
-
         AnswerAnalysisResult analysis = answerAnalysisService.analyzeAnswer(new AnswerAnalysisContext(
                 language,
                 turn.getMainQuestion() == null ? turn.getAiQuestionText() : turn.getMainQuestion().getQuestionText(),
                 turn.getAiQuestionText(),
                 transcript,
                 previousTurns,
-                rubric,
                 Math.toIntExact(followupsUsed),
                 maxFollowups,
                 remainingSeconds));
@@ -337,17 +318,14 @@ public class InterviewServiceImpl implements InterviewService {
         if (hasAudio) {
             turn.setAudioSegmentUrl(audioStorageService.store(attempt.getAttemptId(), request.getAudioSegmentUrl()).url());
         }
-        turn.setAiReasoning(analysis.classification().name() + ": " + analysis.summary());
+        turn.setAiReasoning("TRANSCRIPT_RECORDED");
         interactionTurnRepository.save(turn);
         saveAcousticMetrics(turn, request.getAudioDurationSeconds());
-
-        List<AiRubricAssessment> assessments = persistAssessments(turn, criteria, analysis);
 
         String candidateFollowUp = analysis.followUpQuestion();
         boolean shouldGenerateFollowUp = candidateFollowUp != null
                 && followupsUsed < maxFollowups
                 && remainingAfterAnalysis > 0
-                && analysis.classification() != AnswerAnalysisResult.Classification.SUFFICIENT
                 && !sameQuestion(candidateFollowUp, turn.getMainQuestion() == null
                         ? turn.getAiQuestionText() : turn.getMainQuestion().getQuestionText());
         InteractionTurn nextTurn = null;
@@ -397,7 +375,23 @@ public class InterviewServiceImpl implements InterviewService {
             }
         }
 
-        return toSubmitAnswerResponse(attempt, turn, allTurns, nextTurn, analysis, assessments);
+        return toSubmitAnswerResponse(attempt, turn, allTurns, nextTurn);
+    }
+
+    @Override
+    @Transactional
+    public void storeTurnAudio(UUID attemptId, UUID turnId, byte[] audio, String contentType) {
+        VivaAttempt attempt = vivaAttemptRepository.findByIdForUpdate(attemptId)
+                .orElseThrow(() -> new ResourceNotFoundException("Viva attempt not found: " + attemptId));
+        assertOwner(attempt);
+        InteractionTurn turn = interactionTurnRepository.findById(turnId)
+                .orElseThrow(() -> new ResourceNotFoundException("Turn not found: " + turnId));
+        if (!turn.getAttempt().getAttemptId().equals(attemptId)) {
+            throw new AccessDeniedException("The requested turn does not belong to this interview.");
+        }
+        InterviewAudioStorageService.StoredAudio stored = audioStorageService.storeBytes(attemptId, audio, contentType);
+        turn.setAudioSegmentUrl(stored.url());
+        interactionTurnRepository.save(turn);
     }
 
     @Override
@@ -535,43 +529,6 @@ public class InterviewServiceImpl implements InterviewService {
         return normalized;
     }
 
-    private List<AiRubricAssessment> persistAssessments(
-            InteractionTurn turn, List<RubricCriteria> criteria, AnswerAnalysisResult analysis) {
-        Map<UUID, AiRubricAssessment> existingByCriteria = new HashMap<>();
-        for (AiRubricAssessment existing : rubricAssessmentRepository.findByTurn_TurnId(turn.getTurnId())) {
-            if (existing.getCriteria() != null) {
-                existingByCriteria.putIfAbsent(existing.getCriteria().getCriteriaId(), existing);
-            }
-        }
-        List<AiRubricAssessment> assessments = new ArrayList<>();
-        for (int index = 0; index < criteria.size(); index++) {
-            RubricCriteria item = criteria.get(index);
-            int rubricIndex = index;
-            AnswerAnalysisResult.CriterionResult result = analysis.criteria().stream()
-                    .filter(candidate -> candidate.rubricIndex() == rubricIndex)
-                    .findFirst()
-                    .orElseThrow(() -> new BusinessException("AI assessment is missing a rubric criterion."));
-            BigDecimal weight = item.getWeightRatio() == null ? BigDecimal.ONE : item.getWeightRatio();
-            BigDecimal points = BigDecimal.TEN.multiply(weight)
-                    .multiply(BigDecimal.valueOf(result.scoreFraction()))
-                    .min(BigDecimal.TEN)
-                    .setScale(2, RoundingMode.HALF_UP);
-            String missingConcepts = result.missingConcepts() == null || result.missingConcepts().isEmpty()
-                    ? null : String.join("; ", result.missingConcepts());
-            AiRubricAssessment assessment = existingByCriteria.get(item.getCriteriaId());
-            if (assessment == null) {
-                assessment = AiRubricAssessment.builder().turn(turn).criteria(item).build();
-            }
-            assessment.setSemanticSimilarity(null);
-            assessment.setComplianceStatus(result.complianceStatus());
-            assessment.setAiSuggestedPoints(points);
-            assessment.setMissingConcepts(missingConcepts);
-            assessment.setAiExplanationReasoning(result.reasoning());
-            assessments.add(rubricAssessmentRepository.save(assessment));
-        }
-        return assessments;
-    }
-
     private InteractionTurn saveTurn(
             VivaAttempt attempt, Question mainQuestion, int order, String type, String questionText) {
         if (questionText == null || questionText.isBlank() || questionText.length() > 4000) {
@@ -598,47 +555,20 @@ public class InterviewServiceImpl implements InterviewService {
                 .filter(candidate -> candidate.getTurnOrder() > turn.getTurnOrder())
                 .findFirst()
                 .orElse(null);
-        return toSubmitAnswerResponse(attempt, turn, turns, nextTurn, null,
-                rubricAssessmentRepository.findByTurn_TurnId(turn.getTurnId()));
+        return toSubmitAnswerResponse(attempt, turn, turns, nextTurn);
     }
 
     private SubmitAnswerResponse toSubmitAnswerResponse(
             VivaAttempt attempt,
             InteractionTurn turn,
             List<InteractionTurn> turns,
-            InteractionTurn nextTurn,
-            AnswerAnalysisResult analysis,
-            List<AiRubricAssessment> assessments) {
-        String reasoning = turn.getAiReasoning() == null ? "" : turn.getAiReasoning();
-        int separator = reasoning.indexOf(": ");
-        String classification = analysis == null
-                ? (separator < 0 ? null : reasoning.substring(0, separator))
-                : analysis.classification().name();
-        String summary = analysis == null
-                ? (separator < 0 ? reasoning : reasoning.substring(separator + 2))
-                : analysis.summary();
-
-        List<AiAssessmentResponse> assessmentResponses = assessments.stream()
-                .map(item -> AiAssessmentResponse.builder()
-                        .assessmentId(item.getAssessmentId())
-                        .criteriaId(item.getCriteria() == null ? null : item.getCriteria().getCriteriaId())
-                        .criteriaName(item.getCriteria() == null ? null : item.getCriteria().getCriteriaName())
-                        .semanticSimilarity(item.getSemanticSimilarity())
-                        .complianceStatus(item.getComplianceStatus())
-                        .aiSuggestedPoints(item.getAiSuggestedPoints())
-                        .missingConcepts(item.getMissingConcepts())
-                        .aiExplanationReasoning(item.getAiExplanationReasoning())
-                        .build())
-                .toList();
+            InteractionTurn nextTurn) {
         return SubmitAnswerResponse.builder()
                 .turnId(turn.getTurnId())
                 .transcriptText(turn.getTranscriptText())
                 .completed(InterviewStatus.COMPLETED.name().equalsIgnoreCase(attempt.getStatus()))
                 .followUpGenerated(nextTurn != null && "FOLLOW_UP".equalsIgnoreCase(nextTurn.getTurnType()))
                 .nextTurn(nextTurn == null ? null : toTurnResponse(nextTurn))
-                .answerClassification(classification)
-                .analysisSummary(summary)
-                .assessments(assessmentResponses)
                 .build();
     }
 
@@ -776,7 +706,6 @@ public class InterviewServiceImpl implements InterviewService {
                 .aiQuestionText(turn.getAiQuestionText())
                 .transcriptText(turn.getTranscriptText())
                 .audioSegmentUrl(turn.getAudioSegmentUrl())
-                .aiReasoning(turn.getAiReasoning())
                 .createdAt(turn.getCreatedAt())
                 .build();
     }

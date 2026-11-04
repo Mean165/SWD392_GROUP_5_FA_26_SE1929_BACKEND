@@ -21,6 +21,5 @@ public class InteractionTurnResponse {
     private String aiQuestionText;
     private String transcriptText;
     private String audioSegmentUrl;
-    private String aiReasoning;
     private OffsetDateTime createdAt;
 }

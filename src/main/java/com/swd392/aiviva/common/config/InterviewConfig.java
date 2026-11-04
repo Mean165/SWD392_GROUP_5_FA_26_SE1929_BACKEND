@@ -24,5 +24,8 @@ public class InterviewConfig {
     @Min(1)
     private int maxTranscriptCharacters = 20000;
 
+    @Min(1)
+    private int audioRetentionDays = 30;
+
     private String audioStorageDirectory = "./uploads/audio";
 }

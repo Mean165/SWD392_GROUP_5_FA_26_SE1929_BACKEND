@@ -10,6 +10,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.swd392.aiviva.auth.security.JwtService;
@@ -60,8 +62,8 @@ class SttWebSocketHandlerTest {
         when(socket.getId()).thenReturn("test-session");
         when(jwtService.isTokenValid(token, email)).thenReturn(true);
         when(provider.isAvailable()).thenReturn(true);
-        when(provider.openStreamingSession(eq("vi-VN"), eq(16_000), any())).thenAnswer(invocation -> {
-            listener = invocation.getArgument(2);
+        when(provider.openStreamingSession(eq("vi-VN"), eq(16_000), anyList(), anyString(), any())).thenAnswer(invocation -> {
+            listener = invocation.getArgument(4);
             return stream;
         });
         doAnswer(invocation -> {
@@ -99,7 +101,7 @@ class SttWebSocketHandlerTest {
         sendStart("DEVICE_CHECK", null, null, "fr-FR");
 
         assertHasMessage("\"code\":\"UNSUPPORTED_LANGUAGE\"");
-        verify(provider, never()).openStreamingSession(any(), anyInt(), any());
+        verify(provider, never()).openStreamingSession(any(), anyInt(), anyList(), anyString(), any());
     }
 
     @Test
@@ -108,7 +110,7 @@ class SttWebSocketHandlerTest {
                 + "\"purpose\":\"DEVICE_CHECK\",\"sampleRate\":16000,\"encoding\":\"pcm_s16le\"}"));
 
         assertHasMessage("\"code\":\"CONSENT_REQUIRED\"");
-        verify(provider, never()).openStreamingSession(any(), anyInt(), any());
+        verify(provider, never()).openStreamingSession(any(), anyInt(), anyList(), anyString(), any());
     }
 
     @Test

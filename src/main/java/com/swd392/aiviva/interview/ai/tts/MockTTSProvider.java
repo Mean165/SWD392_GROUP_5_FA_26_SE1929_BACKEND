@@ -6,10 +6,12 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
 @ConditionalOnProperty(prefix = "speech.tts", name = "provider", havingValue = "mock")
+@Profile({"dev", "test"})
 public class MockTTSProvider implements TTSProvider {
 
     private static final int RATE = 24_000;

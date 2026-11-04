@@ -20,6 +20,8 @@ public interface InterviewService {
 
     SubmitAnswerResponse submitAnswer(SubmitAnswerRequest request);
 
+    void storeTurnAudio(UUID attemptId, UUID turnId, byte[] audio, String contentType);
+
     InterviewResponse completeInterview(UUID attemptId);
 
     InterviewResponse completeInterview(UUID attemptId, String fullAudioDataUrl);

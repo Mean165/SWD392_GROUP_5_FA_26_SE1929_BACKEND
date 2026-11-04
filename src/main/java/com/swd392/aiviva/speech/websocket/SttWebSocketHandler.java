@@ -14,6 +14,7 @@ import com.swd392.aiviva.interview.dto.request.SubmitAnswerRequest;
 import com.swd392.aiviva.interview.service.InterviewService;
 import com.swd392.aiviva.speech.config.SpeechToTextProperties;
 import java.io.IOException;
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.List;
@@ -138,11 +139,17 @@ public class SttWebSocketHandler extends AbstractWebSocketHandler {
             fail(session, "SESSION_TIMEOUT", "Audio duration limit exceeded.", CloseStatus.POLICY_VIOLATION);
             return;
         }
+        if ("EXAM".equals(context.purpose)
+                && context.examAudio.size() + bytes > interviewConfig.getMaxAudioBytes()) {
+            fail(session, "AUDIO_TOO_LARGE", "Exam audio exceeded the configured storage limit.", CloseStatus.POLICY_VIOLATION);
+            return;
+        }
         byte[] frame = new byte[bytes];
         payload.get(frame);
         try {
             context.providerSession.sendAudio(frame);
             context.bytesReceived += bytes;
+            if (context.examAudio != null) context.examAudio.writeBytes(frame);
         } catch (SpeechToTextProviderException exception) {
             fail(session, exception.getErrorCode(), exception.getMessage(), CloseStatus.SERVER_ERROR);
         } catch (RuntimeException exception) {
@@ -236,7 +243,8 @@ public class SttWebSocketHandler extends AbstractWebSocketHandler {
                 : interviewConfig.getAnswerTimeLimitSeconds();
         session.getAttributes().put(CONTEXT, context);
         try {
-            context.providerSession = provider.openStreamingSession(language, SAMPLE_RATE, new SpeechToTextResultListener() {
+            context.providerSession = provider.openStreamingSession(language, SAMPLE_RATE, List.of(),
+                    turnId == null ? UUID.randomUUID().toString() : turnId.toString(), new SpeechToTextResultListener() {
                 @Override
                 public void onPartial(String text) {
                     sendEvent(session, Map.of("type", "partial", "text", text));
@@ -315,6 +323,10 @@ public class SttWebSocketHandler extends AbstractWebSocketHandler {
         try {
             SecurityContextHolder.getContext().setAuthentication(authentication);
             int durationSeconds = Math.max(1, Math.toIntExact(context.bytesReceived / (SAMPLE_RATE * 2)));
+            if (context.examAudio != null && context.examAudio.size() > 0) {
+                interviewService.storeTurnAudio(context.attemptId, context.turnId,
+                        toPcmWav(context.examAudio.toByteArray()), "audio/wav");
+            }
             interviewService.submitAnswer(SubmitAnswerRequest.builder()
                     .attemptId(context.attemptId)
                     .turnId(context.turnId)
@@ -325,6 +337,29 @@ public class SttWebSocketHandler extends AbstractWebSocketHandler {
         } finally {
             SecurityContextHolder.clearContext();
         }
+    }
+
+    private byte[] toPcmWav(byte[] pcm) {
+        ByteArrayOutputStream wav = new ByteArrayOutputStream(44 + pcm.length);
+        writeAscii(wav, "RIFF"); writeLittleEndian32(wav, 36 + pcm.length); writeAscii(wav, "WAVEfmt ");
+        writeLittleEndian32(wav, 16); writeLittleEndian16(wav, 1); writeLittleEndian16(wav, 1);
+        writeLittleEndian32(wav, SAMPLE_RATE); writeLittleEndian32(wav, SAMPLE_RATE * 2);
+        writeLittleEndian16(wav, 2); writeLittleEndian16(wav, 16); writeAscii(wav, "data");
+        writeLittleEndian32(wav, pcm.length); wav.writeBytes(pcm);
+        return wav.toByteArray();
+    }
+
+    private void writeAscii(ByteArrayOutputStream out, String value) {
+        out.writeBytes(value.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+    }
+
+    private void writeLittleEndian16(ByteArrayOutputStream out, int value) {
+        out.write(value & 0xff); out.write((value >>> 8) & 0xff);
+    }
+
+    private void writeLittleEndian32(ByteArrayOutputStream out, int value) {
+        out.write(value & 0xff); out.write((value >>> 8) & 0xff);
+        out.write((value >>> 16) & 0xff); out.write((value >>> 24) & 0xff);
     }
 
     private boolean tokenStillValid(WebSocketSession session) {
@@ -429,12 +464,14 @@ public class SttWebSocketHandler extends AbstractWebSocketHandler {
         private volatile ScheduledFuture<?> timeout;
         private volatile long bytesReceived;
         private volatile int maxDurationSeconds;
+        private final ByteArrayOutputStream examAudio;
 
         private SessionContext(UUID studentId, String purpose, UUID attemptId, UUID turnId) {
             this.studentId = studentId;
             this.purpose = purpose;
             this.attemptId = attemptId;
             this.turnId = turnId;
+            this.examAudio = "EXAM".equals(purpose) ? new ByteArrayOutputStream() : null;
         }
     }
 }

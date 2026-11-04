@@ -44,6 +44,12 @@ public final class PcmRingBuffer {
         return snapshotFrom(committedThroughOffset);
     }
 
+    public synchronized ReplayWindow snapshotRetained() {
+        byte[] content = bytes.toByteArray();
+        long retainedStart = totalBytesWritten - content.length;
+        return new ReplayWindow(retainedStart, totalBytesWritten, content);
+    }
+
     public synchronized ReplayWindow snapshotUncommittedFrom(long absoluteByteOffset) {
         if (absoluteByteOffset < committedThroughOffset || absoluteByteOffset > totalBytesWritten
                 || (absoluteByteOffset & 1) != 0) {

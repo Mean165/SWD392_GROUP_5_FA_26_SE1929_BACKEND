@@ -18,4 +18,10 @@ public interface SpeechToTextProvider {
             String language, int sampleRate, java.util.List<String> keyterms, SpeechToTextResultListener listener) {
         return openStreamingSession(language, sampleRate, listener);
     }
+
+    default SpeechToTextStreamingSession openStreamingSession(
+            String language, int sampleRate, java.util.List<String> keyterms, String turnId,
+            SpeechToTextResultListener listener) {
+        return openStreamingSession(language, sampleRate, keyterms, listener);
+    }
 }

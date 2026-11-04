@@ -19,22 +19,22 @@ import org.springframework.beans.factory.support.StaticListableBeanFactory;
 class STTTurnSessionTest {
 
     @Test
-    void realtimeOnlyRunsWithMockAndRequiresExplicitConsent() {
+    void streamingOnlyRunsWithMockAndRequiresExplicitConsent() {
         SpeechToTextProperties mockProperties = new SpeechToTextProperties();
         MockSTTProvider mockProvider = new MockSTTProvider(new ObjectMapper(), mockProperties);
         var factory = new StaticListableBeanFactory();
         factory.addBean("mockBatch", (STTBatchTranscriber) mockProvider);
         STTModeProperties modeProperties = new STTModeProperties();
-        SttCostTracker costTracker = new SttCostTracker(new com.swd392.aiviva.speech.config.STTCostProperties());
+        InferenceResourceTracker resourceTracker = new InferenceResourceTracker();
 
         STTTurnSession noConsent = new STTTurnSession(UUID.randomUUID(), "vi-VN", false,
-                STTMode.REALTIME_ONLY, List.of(), mockProvider, factory.getBeanProvider(STTBatchTranscriber.class),
-                new TranscriptNormalizer(), new TranscriptReconciler(), modeProperties, costTracker);
+                STTMode.STREAMING_ONLY, List.of(), mockProvider, factory.getBeanProvider(STTBatchTranscriber.class),
+                new TranscriptNormalizer(), new TranscriptReconciler(), modeProperties, resourceTracker);
         assertThrows(SecurityException.class, noConsent::start);
 
         STTTurnSession session = new STTTurnSession(UUID.randomUUID(), "vi-VN", true,
-                STTMode.REALTIME_ONLY, List.of("Java"), mockProvider, factory.getBeanProvider(STTBatchTranscriber.class),
-                new TranscriptNormalizer(), new TranscriptReconciler(), modeProperties, costTracker);
+                STTMode.STREAMING_ONLY, List.of("Java"), mockProvider, factory.getBeanProvider(STTBatchTranscriber.class),
+                new TranscriptNormalizer(), new TranscriptReconciler(), modeProperties, resourceTracker);
         session.start();
         session.appendAudio(new byte[32_000]);
         var result = session.finish(List.of("Java"));
@@ -42,7 +42,7 @@ class STTTurnSessionTest {
         assertEquals("The answer is forty-two.", result.officialTextRaw());
         assertEquals("STREAMING", result.officialSource().name());
         assertTrue(mockProvider.isAvailable());
-        assertTrue(costTracker.snapshot().realtimeAudioMillis() > 0);
+        assertTrue(resourceTracker.snapshot().audioMillis() > 0);
     }
 
     @Test
@@ -55,7 +55,7 @@ class STTTurnSessionTest {
         STTTurnSession session = new STTTurnSession(UUID.randomUUID(), "en-US", true,
                 STTMode.DUAL, List.of(), mockProvider, factory.getBeanProvider(STTBatchTranscriber.class),
                 new TranscriptNormalizer(), new TranscriptReconciler(), new STTModeProperties(),
-                new SttCostTracker(new com.swd392.aiviva.speech.config.STTCostProperties()));
+                new InferenceResourceTracker());
         session.start();
         session.appendAudio(new byte[32_000]);
 

@@ -183,11 +183,7 @@ class InterviewServiceImplTest {
     @Test
     void finalizesOnceAndReturnsThePersistedResultOnRetry() {
         when(answerAnalysisService.analyzeAnswer(any())).thenReturn(new AnswerAnalysisResult(
-                AnswerAnalysisResult.Classification.SUFFICIENT,
-                "The answer addresses the question.",
-                List.of(),
-                null,
-                List.of()));
+                null));
         SubmitAnswerRequest request = SubmitAnswerRequest.builder()
                 .attemptId(attemptId)
                 .turnId(turnId)
@@ -199,9 +195,9 @@ class InterviewServiceImplTest {
 
         assertTrue(first.isCompleted());
         assertEquals(first.getTranscriptText(), retry.getTranscriptText());
-        assertEquals("SUFFICIENT", retry.getAnswerClassification());
         verify(answerAnalysisService, times(1)).analyzeAnswer(any());
         verify(interactionTurnRepository, times(1)).save(turn);
+        verify(rubricAssessmentRepository, never()).save(any());
     }
 
     @Test
@@ -210,8 +206,7 @@ class InterviewServiceImplTest {
         when(sttService.transcribe("data:audio/webm;base64,AA==", "en")).thenReturn("Recognized answer.");
         when(audioStorageService.store(attemptId, "data:audio/webm;base64,AA=="))
                 .thenReturn(new InterviewAudioStorageService.StoredAudio("/stored/audio.webm", "audio/webm"));
-        when(answerAnalysisService.analyzeAnswer(any())).thenReturn(new AnswerAnalysisResult(
-                AnswerAnalysisResult.Classification.SUFFICIENT, "Relevant answer.", List.of(), null, List.of()));
+        when(answerAnalysisService.analyzeAnswer(any())).thenReturn(new AnswerAnalysisResult(null));
 
         service.submitAnswer(SubmitAnswerRequest.builder()
                 .attemptId(attemptId)
@@ -235,11 +230,7 @@ class InterviewServiceImplTest {
     void doesNotCreateFollowUpsAfterTheConfiguredLimit() {
         assignment.getSession().setMaxFollowupPerQuestion(0);
         when(answerAnalysisService.analyzeAnswer(any())).thenReturn(new AnswerAnalysisResult(
-                AnswerAnalysisResult.Classification.PARTIAL,
-                "A key point is missing.",
-                List.of("key point"),
-                "Can you clarify the relevant point?",
-                List.of()));
+                "Can you clarify the relevant point?"));
 
         SubmitAnswerResponse response = service.submitAnswer(SubmitAnswerRequest.builder()
                 .attemptId(attemptId)
@@ -256,11 +247,7 @@ class InterviewServiceImplTest {
     @Test
     void createsOneContextualFollowUpAndDoesNotDuplicateItOnRetry() {
         when(answerAnalysisService.analyzeAnswer(any())).thenReturn(new AnswerAnalysisResult(
-                AnswerAnalysisResult.Classification.PARTIAL,
-                "The answer omits a limitation.",
-                List.of("one limitation"),
-                "What limitation would apply in this case?",
-                List.of()));
+                "What limitation would apply in this case?"));
         SubmitAnswerRequest request = SubmitAnswerRequest.builder()
                 .attemptId(attemptId)
                 .turnId(turnId)

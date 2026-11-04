@@ -16,9 +16,9 @@ class TranscriptReconcilerTest {
     private final TranscriptNormalizer normalizer = new TranscriptNormalizer();
 
     @Test
-    void choosesBatchAsOfficialAndMarksHighSimilarityForAnalysisReuse() {
-        STTResult streaming = result("Google", "The answer is forty two.", 0.91);
-        STTResult batch = result("ElevenLabs", "The answer is forty-two.", 0.97);
+    void choosesFinalAsOfficialAndMarksHighSimilarityForAnalysisReuse() {
+        STTResult streaming = result("local", "The answer is forty two.", 0.91);
+        STTResult batch = result("local", "The answer is forty-two.", 0.97);
 
         var result = reconciler.reconcile(UUID.randomUUID(), streaming, batch, STTMode.DUAL,
                 0.95, 0.55, 0.92, normalizer, List.of());
@@ -32,8 +32,8 @@ class TranscriptReconcilerTest {
 
     @Test
     void fallsBackToStreamingAndRequestsReviewOnBatchErrorOrLowConfidence() {
-        STTResult streaming = result("ElevenLabs", "Maybe four", 0.2);
-        STTResult batchError = new STTResult("ElevenLabs", "scribe_v2", "final", null,
+        STTResult streaming = result("local", "Maybe four", 0.2);
+        STTResult batchError = new STTResult("local", "local-final", "final", null,
                 List.of(), "eng", null, "none", 2000L, 20L, List.of(), "req-1", "timeout");
 
         var result = reconciler.reconcile(UUID.randomUUID(), streaming, batchError, STTMode.DUAL,
@@ -47,7 +47,7 @@ class TranscriptReconcilerTest {
     }
 
     private STTResult result(String provider, String text, double confidence) {
-        return new STTResult(provider, "scribe", "streaming", text, List.of(), "eng",
+        return new STTResult(provider, "local-streaming", "streaming", text, List.of(), "eng",
                 confidence, "provider", 2000L, 100L, List.of(), "req", null);
     }
 }

@@ -35,7 +35,7 @@ public final class STTTurnSession implements AutoCloseable {
     private final TranscriptNormalizer normalizer;
     private final TranscriptReconciler reconciler;
     private final STTModeProperties properties;
-    private final SttCostTracker costTracker;
+    private final InferenceResourceTracker resourceTracker;
     private final List<STTEvent> events = new CopyOnWriteArrayList<>();
     private final List<String> committedSegments = new CopyOnWriteArrayList<>();
     private volatile String latestPartial = "";
@@ -56,7 +56,7 @@ public final class STTTurnSession implements AutoCloseable {
             TranscriptNormalizer normalizer,
             TranscriptReconciler reconciler,
             STTModeProperties properties,
-            SttCostTracker costTracker) {
+            InferenceResourceTracker resourceTracker) {
         this.turnId = java.util.Objects.requireNonNull(turnId);
         this.language = requireLanguage(language);
         this.audioConsent = audioConsent;
@@ -67,7 +67,7 @@ public final class STTTurnSession implements AutoCloseable {
         this.normalizer = normalizer;
         this.reconciler = reconciler;
         this.properties = properties;
-        this.costTracker = costTracker;
+        this.resourceTracker = resourceTracker;
         int maxBytes = Math.multiplyExact(Math.multiplyExact(properties.getMaxAudioSeconds(), SAMPLE_RATE), BYTES_PER_SAMPLE);
         this.audioBuffer = new PcmRingBuffer(maxBytes);
     }
@@ -75,7 +75,7 @@ public final class STTTurnSession implements AutoCloseable {
     public synchronized void start() {
         requireConsent();
         if (started) throw new IllegalStateException("STT turn already started.");
-        if (mode != STTMode.BATCH_ONLY) {
+        if (mode != STTMode.FINAL_ONLY) {
             if (!realtimeProvider.isAvailable()) {
                 throw new SpeechToTextProviderException("PROVIDER_UNAVAILABLE", "Realtime STT provider is unavailable.");
             }
@@ -126,28 +126,27 @@ public final class STTTurnSession implements AutoCloseable {
         requireConsent();
         if (!started || finished) throw new IllegalStateException("STT turn is not active.");
         finished = true;
+        long inferenceStartedAt = System.nanoTime();
         long durationMs = totalAudioBytes * 1000 / (SAMPLE_RATE * BYTES_PER_SAMPLE);
         STTResult streaming = null;
         STTResult batch = null;
 
-        if (mode != STTMode.BATCH_ONLY) {
+        if (mode != STTMode.FINAL_ONLY) {
             streaming = finishRealtime(durationMs);
             if (streamFailure != null && streaming.error() == null) {
                 streaming = withError(streaming, "realtime_stream_error");
             }
         }
-        if (mode != STTMode.REALTIME_ONLY && totalAudioBytes > 0) {
+        if (mode != STTMode.STREAMING_ONLY && totalAudioBytes > 0) {
             batch = finishBatch(durationMs);
         }
 
-        if (mode == STTMode.REALTIME_ONLY) {
-            costTracker.record("realtime", durationMs, !keyterms.isEmpty(), streaming == null || !streaming.usable());
-        } else if (mode == STTMode.BATCH_ONLY) {
-            costTracker.record("batch", durationMs, !keyterms.isEmpty(), batch == null || !batch.usable());
-        } else {
-            costTracker.record("realtime", durationMs, !keyterms.isEmpty(), streaming == null || !streaming.usable());
-            costTracker.record("batch", durationMs, !keyterms.isEmpty(), batch == null || !batch.usable());
-        }
+        long partialCount = events.stream().filter(event -> event.kind() == STTEvent.Kind.PARTIAL).count();
+        long committedCount = events.stream().filter(event -> event.kind() == STTEvent.Kind.COMMITTED).count();
+        boolean failed = (streaming != null && !streaming.usable()) || (batch != null && !batch.usable());
+        resourceTracker.record(durationMs, 0,
+                Duration.ofNanos(System.nanoTime() - inferenceStartedAt).toMillis(),
+                partialCount, committedCount, failed);
 
         TurnTranscript result = reconciler.reconcile(turnId, streaming, batch, mode,
                 properties.getReconcileThreshold(), properties.getMinimumConfidence(),
@@ -159,7 +158,7 @@ public final class STTTurnSession implements AutoCloseable {
     private STTResult finishRealtime(long durationMs) {
         if (streamingSession == null) return null;
         try {
-            String providerText = streamingSession.finish(Duration.ofSeconds(properties.getBatchTimeoutSeconds()));
+            String providerText = streamingSession.finish(Duration.ofSeconds(properties.getFinalTimeoutSeconds()));
             String transcript = providerText == null || providerText.isBlank()
                     ? String.join(" ", committedSegments).trim() : providerText.trim();
             Double confidence = events.stream().filter(event -> event.kind() == STTEvent.Kind.COMMITTED)

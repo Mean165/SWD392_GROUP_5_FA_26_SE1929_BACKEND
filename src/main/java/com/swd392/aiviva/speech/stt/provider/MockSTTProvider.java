@@ -9,6 +9,7 @@ import com.swd392.aiviva.interview.ai.stt.SpeechToTextStreamingSession;
 import com.swd392.aiviva.speech.config.SpeechToTextProperties;
 import com.swd392.aiviva.speech.stt.domain.STTResult;
 import com.swd392.aiviva.speech.stt.domain.STTWord;
+import com.swd392.aiviva.speech.stt.provider.STTBatchTranscriber;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,10 +19,12 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
 @ConditionalOnProperty(prefix = "speech.stt", name = "provider", havingValue = "mock")
+@Profile({"dev", "test"})
 public class MockSTTProvider implements SpeechToTextProvider, STTBatchTranscriber {
 
     private final ObjectMapper objectMapper;
@@ -63,13 +66,13 @@ public class MockSTTProvider implements SpeechToTextProvider, STTBatchTranscribe
     }
 
     private STTResult errorResult(UUID turnId, String language, List<String> keyterms, String error) {
-        return new STTResult("mock", "mock-scribe", "final", null, List.of(), language,
+        return new STTResult("mock", "mock-local", "final", null, List.of(), language,
                 null, "none", null, 0L, keyterms, "mock-" + turnId, error);
     }
 
     private STTResult result(UUID turnId, String language, List<String> keyterms,
             String text, double confidence, long durationMs) {
-        return new STTResult("mock", "mock-scribe", "final", text, words(text, confidence),
+        return new STTResult("mock", "mock-local", "final", text, words(text, confidence),
                 language, confidence, "provider", durationMs, 0L, keyterms, "mock-" + turnId, null);
     }
 
