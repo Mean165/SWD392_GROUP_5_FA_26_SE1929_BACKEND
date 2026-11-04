@@ -72,6 +72,7 @@ reports/tts_samples/
 reports/benchmark_*.csv
 reports/benchmark_*.md
 reports/tts_benchmark_*.csv
+reports/tts_benchmark_*.md
 reports/pipeline_dry_run_*.json
 inference-service/.venv/
 inference-service/__pycache__/
