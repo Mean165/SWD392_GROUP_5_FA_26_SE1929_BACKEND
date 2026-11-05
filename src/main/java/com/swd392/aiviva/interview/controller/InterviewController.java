@@ -78,6 +78,11 @@ public class InterviewController {
                         request == null ? null : request.getFullAudioDataUrl())));
     }
 
+    @PostMapping("/{attemptId}/abandon")
+    public ResponseEntity<ApiResponse<InterviewResponse>> abandonInterview(@PathVariable UUID attemptId) {
+        return ResponseEntity.ok(ApiResponse.success("Interview marked as abandoned", interviewService.abandonInterview(attemptId)));
+    }
+
     /** Generates an authenticated MP3 response for the question in this turn. */
     @GetMapping(value = "/turns/{turnId}/speech", produces = {"audio/mpeg", "audio/wav"})
     public ResponseEntity<byte[]> getTurnSpeechAudio(

@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -30,6 +31,11 @@ public interface StudentSessionAssignmentRepository extends JpaRepository<Studen
 
     List<StudentSessionAssignment> findByExamSessionSessionId(UUID sessionId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from StudentSessionAssignment a where a.examSession.sessionId=:sessionId order by a.assignmentId")
+    List<StudentSessionAssignment> findByExamSessionForUpdate(@Param("sessionId") UUID sessionId);
+
+    @EntityGraph(attributePaths = {"examSession", "student"})
     List<StudentSessionAssignment> findByExamSessionSessionIdOrderBySlotOrderAscScheduledTimeAsc(UUID sessionId);
 
     List<StudentSessionAssignment> findByExamSessionSessionIdAndStatusIn(UUID sessionId, List<String> statuses);
@@ -52,24 +58,31 @@ public interface StudentSessionAssignmentRepository extends JpaRepository<Studen
     @Query(value = """
             select new com.swd392.aiviva.exam.dto.response.StudentExamAssignmentResponse(
                 a.assignmentId, a.scheduledTime, a.status, s.sessionId, s.sessionName, s.status,
-                s.timeLimitMinutes, s.maxMainQuestions, s.maxFollowupPerQuestion, v.attemptId, v.status, t.topicName, a.slotOrder)
+                s.timeLimitMinutes, s.maxMainQuestions, s.maxFollowupPerQuestion, t.topicName, a.slotOrder)
             from StudentSessionAssignment a
             join a.examSession s
             left join s.topic t
-            left join VivaAttempt v on v.assignment.assignmentId = a.assignmentId
             where a.student.userId = :studentId
-              and ((a.scheduledTime >= :fromTime and a.scheduledTime <= :toTime)
+              and a.removedAt is null
+              and (exists (select ea.attemptId from ExamAttempt ea
+                           where ea.assignment=a and ea.scheduledTime >= :fromTime and ea.scheduledTime <= :toTime
+                             and ea.status in ('SCHEDULED','IN_PROGRESS'))
                    or upper(a.status) = 'IN_PROGRESS')
-              and (:filterByStatus = false or upper(a.status) = upper(:status))
+              and (:filterByStatus = false or exists (select ea2.attemptId from ExamAttempt ea2
+                           where ea2.assignment=a and upper(ea2.status)=upper(:status)))
             order by a.scheduledTime asc
             """,
             countQuery = """
             select count(a)
             from StudentSessionAssignment a
             where a.student.userId = :studentId
-              and ((a.scheduledTime >= :fromTime and a.scheduledTime <= :toTime)
+              and a.removedAt is null
+              and (exists (select ea.attemptId from ExamAttempt ea
+                           where ea.assignment=a and ea.scheduledTime >= :fromTime and ea.scheduledTime <= :toTime
+                             and ea.status in ('SCHEDULED','IN_PROGRESS'))
                    or upper(a.status) = 'IN_PROGRESS')
-              and (:filterByStatus = false or upper(a.status) = upper(:status))
+              and (:filterByStatus = false or exists (select ea2.attemptId from ExamAttempt ea2
+                           where ea2.assignment=a and upper(ea2.status)=upper(:status)))
             """)
     Page<StudentExamAssignmentResponse> findStudentSchedule(
             @Param("studentId") UUID studentId,
@@ -82,32 +95,36 @@ public interface StudentSessionAssignmentRepository extends JpaRepository<Studen
     @Query(value = """
             select new com.swd392.aiviva.exam.dto.response.StudentExamAssignmentResponse(
                 a.assignmentId, a.scheduledTime, a.status, s.sessionId, s.sessionName, s.status,
-                s.timeLimitMinutes, s.maxMainQuestions, s.maxFollowupPerQuestion, v.attemptId, v.status, t.topicName, a.slotOrder)
+                s.timeLimitMinutes, s.maxMainQuestions, s.maxFollowupPerQuestion, t.topicName, a.slotOrder)
             from StudentSessionAssignment a
             join a.examSession s
             left join s.topic t
-            left join VivaAttempt v on v.assignment.assignmentId = a.assignmentId
             where a.student.userId = :studentId
-                and upper(a.status) in ('COMPLETED', 'ABSENT', 'CANCELLED')
+                and a.removedAt is null
+                and (upper(a.status) in ('COMPLETED', 'ABSENT', 'CANCELLED')
+                     or exists (select ea.attemptId from ExamAttempt ea
+                                where ea.assignment=a and ea.status in ('COMPLETED','ABANDONED','EXPIRED','VOIDED')))
             order by a.scheduledTime desc
             """,
             countQuery = """
             select count(a)
             from StudentSessionAssignment a
             where a.student.userId = :studentId
-              and upper(a.status) in ('COMPLETED', 'ABSENT', 'CANCELLED')
+              and a.removedAt is null
+              and (upper(a.status) in ('COMPLETED', 'ABSENT', 'CANCELLED')
+                   or exists (select ea.attemptId from ExamAttempt ea
+                              where ea.assignment=a and ea.status in ('COMPLETED','ABANDONED','EXPIRED','VOIDED')))
             """)
     Page<StudentExamAssignmentResponse> findStudentHistory(@Param("studentId") UUID studentId, Pageable pageable);
 
     @Query("""
             select new com.swd392.aiviva.exam.dto.response.StudentExamAssignmentResponse(
                 a.assignmentId, a.scheduledTime, a.status, s.sessionId, s.sessionName, s.status,
-                s.timeLimitMinutes, s.maxMainQuestions, s.maxFollowupPerQuestion, v.attemptId, v.status, t.topicName, a.slotOrder)
+                s.timeLimitMinutes, s.maxMainQuestions, s.maxFollowupPerQuestion, t.topicName, a.slotOrder)
             from StudentSessionAssignment a
             join a.examSession s
             left join s.topic t
-            left join VivaAttempt v on v.assignment.assignmentId = a.assignmentId
-            where a.assignmentId = :assignmentId and a.student.userId = :studentId
+            where a.assignmentId = :assignmentId and a.student.userId = :studentId and a.removedAt is null
             """)
     Optional<StudentExamAssignmentResponse> findStudentScheduleById(
             @Param("assignmentId") UUID assignmentId, @Param("studentId") UUID studentId);

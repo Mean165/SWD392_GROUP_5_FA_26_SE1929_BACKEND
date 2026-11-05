@@ -2,6 +2,7 @@ package com.swd392.aiviva.interview.entity;
 
 import com.swd392.aiviva.question.entity.Question;
 import com.swd392.aiviva.question.enums.BloomLevel;
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -20,6 +21,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "attempt_question_plan")
@@ -51,4 +54,8 @@ public class AttemptQuestionPlan {
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "selection_flags_json", nullable = false, columnDefinition = "jsonb")
+    private JsonNode selectionFlagsJson;
 }

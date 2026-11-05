@@ -20,6 +20,8 @@ import com.swd392.aiviva.exam.entity.ExamSessionBloomDistribution;
 import com.swd392.aiviva.exam.entity.StudentSessionAssignment;
 import com.swd392.aiviva.exam.repository.ExamSessionBloomDistributionRepository;
 import com.swd392.aiviva.exam.repository.ExamSessionRepository;
+import com.swd392.aiviva.exam.attempt.service.AttemptRosterService;
+import com.swd392.aiviva.exam.attempt.service.ExamAttemptService;
 import com.swd392.aiviva.exam.repository.StudentSessionAssignmentRepository;
 import com.swd392.aiviva.interview.entity.VivaAttempt;
 import com.swd392.aiviva.interview.repository.VivaAttemptRepository;
@@ -28,6 +30,7 @@ import com.swd392.aiviva.question.entity.Question;
 import com.swd392.aiviva.question.enums.BloomLevel;
 import com.swd392.aiviva.question.repository.QuestionRepository;
 import com.swd392.aiviva.question.repository.SubjectTopicRepository;
+import com.swd392.aiviva.question.repository.SubjectRepository;
 import com.swd392.aiviva.question.service.RubricResolver;
 import com.swd392.aiviva.question.entity.SubjectTopic;
 import com.swd392.aiviva.user.entity.AppUser;
@@ -58,32 +61,41 @@ public class ExamSessionServiceImpl implements ExamSessionService {
     private final StudentSessionAssignmentRepository assignmentRepository;
     private final UserRepository userRepository;
     private final SubjectTopicRepository topicRepository;
+    private final SubjectRepository subjectRepository;
     private final ExamSessionBloomDistributionRepository distributionRepository;
     private final VivaAttemptRepository attemptRepository;
     private final QuestionRepository questionRepository;
     private final RubricResolver rubricResolver;
     private final FinalGradeReportRepository gradeRepository;
+    private final AttemptRosterService attemptRosterService;
+    private final ExamAttemptService examAttemptService;
     private final int defaultMaxOverlapPercent;
 
     public ExamSessionServiceImpl(ExamSessionRepository examSessionRepository,
                                   StudentSessionAssignmentRepository assignmentRepository,
                                   UserRepository userRepository,
                                   SubjectTopicRepository topicRepository,
+                                  SubjectRepository subjectRepository,
                                   ExamSessionBloomDistributionRepository distributionRepository,
                                   VivaAttemptRepository attemptRepository,
                                   QuestionRepository questionRepository,
                                   RubricResolver rubricResolver,
                                   FinalGradeReportRepository gradeRepository,
+                                  AttemptRosterService attemptRosterService,
+                                  ExamAttemptService examAttemptService,
                                   @Value("${exam.default-max-overlap-percent:40}") int defaultMaxOverlapPercent) {
         this.examSessionRepository = examSessionRepository;
         this.assignmentRepository = assignmentRepository;
         this.userRepository = userRepository;
         this.topicRepository = topicRepository;
+        this.subjectRepository = subjectRepository;
         this.distributionRepository = distributionRepository;
         this.attemptRepository = attemptRepository;
         this.questionRepository = questionRepository;
         this.rubricResolver = rubricResolver;
         this.gradeRepository = gradeRepository;
+        this.attemptRosterService = attemptRosterService;
+        this.examAttemptService = examAttemptService;
         this.defaultMaxOverlapPercent = defaultMaxOverlapPercent;
     }
 
@@ -118,8 +130,9 @@ public class ExamSessionServiceImpl implements ExamSessionService {
         ExamSession session = examSessionRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Exam session not found with id: " + id));
         authorizeOwner(session);
         if (!"SCHEDULED".equalsIgnoreCase(session.getStatus())) throw new ConflictException("Only SCHEDULED sessions can be edited", "SESSION_EDIT_LOCKED");
-        boolean hasStartedAttempt = assignmentRepository.findByExamSessionSessionId(id).stream().map(a -> attemptRepository.findByAssignment_AssignmentId(a.getAssignmentId()).orElse(null))
-                .filter(java.util.Objects::nonNull).anyMatch(a -> List.of("IN_PROGRESS", "COMPLETED").contains(a.getStatus().toUpperCase(Locale.ROOT)));
+        boolean hasStartedAttempt = assignmentRepository.findByExamSessionSessionId(id).stream()
+                .flatMap(a -> attemptRepository.findAllByAssignment_AssignmentIdOrderByStartTimeAsc(a.getAssignmentId()).stream())
+                .anyMatch(a -> List.of("IN_PROGRESS", "COMPLETED").contains(a.getStatus().toUpperCase(Locale.ROOT)));
         if (hasStartedAttempt && (request.getMaxMainQuestions() != null || request.getBloomDistribution() != null || request.getTopicId() != null)) throw new ConflictException("Session question configuration is locked after an attempt has started", "SESSION_EDIT_LOCKED");
         if (request.getTopicId() != null && !request.getTopicId().equals(session.getTopic().getTopicId())) throw new ConflictException("topic_id cannot be changed after session creation", "SESSION_TOPIC_IMMUTABLE");
         if (request.getSessionName() != null && !request.getSessionName().isBlank()) session.setSessionName(request.getSessionName().trim());
@@ -179,12 +192,12 @@ public class ExamSessionServiceImpl implements ExamSessionService {
         OffsetDateTime time = request.getScheduledTime(); String status = time == null ? "PENDING" : "SCHEDULED";
         if (time != null) { ensureNoScheduleConflict(student.getUserId(), time, session.getTimeLimitMinutes()); ensureNoSessionOverlap(session.getSessionId(), time, session.getTimeLimitMinutes(), null); }
         StudentSessionAssignment saved = assignmentRepository.save(StudentSessionAssignment.builder().examSession(session).student(student).scheduledTime(time).status(status).build());
-        return assignmentResponse(saved);
+        return attemptRosterService.map(sessionId, List.of(saved)).getFirst();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<StudentSessionAssignmentResponse> getAssignmentsBySessionId(UUID sessionId, String status, int page, int size) { ExamSession s = examSessionRepository.findById(sessionId).orElseThrow(() -> new ResourceNotFoundException("Exam session not found")); authorizeOwner(s); if(page<0||size<1||size>100) throw new BusinessException("page must be >= 0 and size must be between 1 and 100"); List<StudentSessionAssignment> all=assignmentRepository.findByExamSessionSessionIdOrderBySlotOrderAscScheduledTimeAsc(sessionId); if(status!=null&&!status.isBlank()){String normalized=status.trim().toUpperCase(Locale.ROOT); if(!List.of("PENDING","SCHEDULED","IN_PROGRESS","COMPLETED","ABSENT","CANCELLED").contains(normalized)) throw new BusinessException("Unsupported assignment status"); all=all.stream().filter(a->normalized.equals(a.getStatus())).toList();} int start=Math.min(page*size,all.size()),end=Math.min(start+size,all.size()); List<StudentSessionAssignmentResponse> content=all.subList(start,end).stream().map(this::assignmentResponse).toList(); return PageResponse.<StudentSessionAssignmentResponse>builder().content(content).page(page).size(size).totalElements(all.size()).totalPages((int)Math.ceil((double)all.size()/size)).build(); }
+    public PageResponse<StudentSessionAssignmentResponse> getAssignmentsBySessionId(UUID sessionId, String status, int page, int size) { ExamSession s = examSessionRepository.findById(sessionId).orElseThrow(() -> new ResourceNotFoundException("Exam session not found")); authorizeOwner(s); if(page<0||size<1||size>100) throw new BusinessException("page must be >= 0 and size must be between 1 and 100"); List<StudentSessionAssignment> all=assignmentRepository.findByExamSessionSessionIdOrderBySlotOrderAscScheduledTimeAsc(sessionId).stream().filter(a->a.getRemovedAt()==null).toList(); if(status!=null&&!status.isBlank()){String normalized=status.trim().toUpperCase(Locale.ROOT); if(!List.of("PENDING","SCHEDULED","IN_PROGRESS","COMPLETED","ABSENT","CANCELLED").contains(normalized)) throw new BusinessException("Unsupported assignment status"); all=all.stream().filter(a->normalized.equals(a.getStatus())).toList();} int start=Math.min(page*size,all.size()),end=Math.min(start+size,all.size()); List<StudentSessionAssignmentResponse> content=attemptRosterService.map(sessionId,all.subList(start,end)); return PageResponse.<StudentSessionAssignmentResponse>builder().content(content).page(page).size(size).totalElements(all.size()).totalPages((int)Math.ceil((double)all.size()/size)).build(); }
 
     @Override
     @Transactional
@@ -192,7 +205,33 @@ public class ExamSessionServiceImpl implements ExamSessionService {
 
     @Override
     @Transactional
-    public ExamSessionResponse cancelSession(UUID id, CancelExamSessionRequest request) { ExamSession s = examSessionRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Exam session not found")); authorizeOwner(s); boolean active = assignmentRepository.findByExamSessionSessionId(id).stream().map(a -> attemptRepository.findByAssignment_AssignmentId(a.getAssignmentId()).orElse(null)).filter(java.util.Objects::nonNull).anyMatch(a -> "IN_PROGRESS".equalsIgnoreCase(a.getStatus())); if (active) throw new ConflictException("Cannot cancel a session with an IN_PROGRESS attempt"); ExamStateMachine.requireSessionTransition(s.getStatus(), "CANCELLED"); s.setStatus("CANCELLED"); s.setDescription((s.getDescription() == null ? "" : s.getDescription() + "\n") + "Cancelled: " + request.getReason()); assignmentRepository.findByExamSessionSessionId(id).forEach(a -> { if (List.of("PENDING","SCHEDULED").contains(a.getStatus())) { a.setStatus("CANCELLED"); a.setCancelledReason(request.getReason()); assignmentRepository.save(a); } }); return response(examSessionRepository.save(s)); }
+    public ExamSessionResponse cancelSession(UUID id, CancelExamSessionRequest request) {
+        ExamSession session = examSessionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Exam session not found"));
+        authorizeOwner(session);
+        List<StudentSessionAssignment> sessionAssignments = assignmentRepository.findByExamSessionSessionId(id);
+        boolean active = sessionAssignments.stream()
+                .flatMap(row -> attemptRepository.findAllByAssignment_AssignmentIdOrderByStartTimeAsc(row.getAssignmentId()).stream())
+                .anyMatch(row -> "IN_PROGRESS".equalsIgnoreCase(row.getStatus()));
+        if (active) throw new ConflictException("Cannot cancel a session with an IN_PROGRESS attempt");
+        ExamStateMachine.requireSessionTransition(session.getStatus(), "CANCELLED");
+        for (StudentSessionAssignment assignment : sessionAssignments) {
+            for (var attempt : examAttemptService.rowsForEnrollment(id, assignment.getStudent().getUserId())) {
+                if ("SCHEDULED".equals(attempt.getStatus()) && !attempt.isCounted()) {
+                    examAttemptService.cancel(attempt.getAttemptId(), request.getReason());
+                }
+            }
+            if (List.of("PENDING", "SCHEDULED").contains(assignment.getStatus())) {
+                assignment.setStatus("CANCELLED");
+                assignment.setCancelledReason(request.getReason());
+                assignmentRepository.save(assignment);
+            }
+        }
+        session.setStatus("CANCELLED");
+        session.setDescription((session.getDescription() == null ? "" : session.getDescription() + "\n")
+                + "Cancelled: " + request.getReason());
+        return response(examSessionRepository.save(session));
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -208,27 +247,48 @@ public class ExamSessionServiceImpl implements ExamSessionService {
         if (ids.isEmpty() && codes.isEmpty()) throw new BusinessException("Provide studentIds or studentCodes");
         for (UUID studentId : ids) addStudent(s, studentId.toString(), userRepository.findById(studentId).orElse(null), added, skipped);
         for (String code : codes) { String identifier = code == null ? "" : code.trim(); AppUser student = identifier.contains("@") ? userRepository.findByEmail(identifier).orElse(null) : userRepository.findByStudentOrStaffCode(identifier).orElse(null); addStudent(s, identifier, student, added, skipped); }
+        if (request.getExtraAttemptsByIdentifier() != null) {
+            for (int index = 0; index < added.size(); index++) {
+                Map<String, Object> row = added.get(index);
+                String identifier = String.valueOf(row.get("identifier"));
+                Integer extra = request.getExtraAttemptsByIdentifier().getOrDefault(identifier,
+                        row.get("studentId") == null ? 0 : request.getExtraAttemptsByIdentifier().getOrDefault(String.valueOf(row.get("studentId")), 0));
+                if (extra == null || extra == 0) continue;
+                if (extra < 0 || !examAttemptService.extraAttemptsAllowed(id)) {
+                    skipped.add(Map.of("identifier", identifier, "reason", extra < 0 ? "INVALID_EXTRA_ATTEMPTS" : "EXTRA_ATTEMPTS_DISABLED"));
+                    continue;
+                }
+                examAttemptService.grant(id, UUID.fromString(String.valueOf(row.get("studentId"))), extra, "import");
+                Map<String, Object> updated = new java.util.LinkedHashMap<>(row);
+                updated.put("extraAttempts", extra);
+                added.set(index, updated);
+            }
+        }
         return Map.of("added", added, "skipped", skipped);
     }
 
     @Override
     @Transactional
-    public Map<String, Object> autoSchedule(UUID id, ScheduleExamRequest request) { ExamSession s = examSessionRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Exam session not found")); authorizeOwner(s); OffsetDateTime start = request.getStartTime() != null ? request.getStartTime() : s.getStartTime(); if (start == null) start = OffsetDateTime.now(); int slot = request.getSlotMinutes() == null ? s.getTimeLimitMinutes() + s.getBufferMinutes() : request.getSlotMinutes(); List<StudentSessionAssignment> pending = assignmentRepository.findByExamSessionSessionIdAndStatusIn(id, List.of("PENDING","SCHEDULED")); if (Boolean.TRUE.equals(request.getShuffle())) java.util.Collections.shuffle(pending, new java.util.Random(request.getSeed() == null ? id.getMostSignificantBits() : request.getSeed())); List<Map<String,Object>> result = new ArrayList<>(); int order = 1; OffsetDateTime cursor = start; for (StudentSessionAssignment a : pending) { result.add(Map.of("assignmentId", a.getAssignmentId(), "studentId", a.getStudent().getUserId(), "slotOrder", order, "scheduledTime", cursor)); if (!Boolean.TRUE.equals(request.getDryRun())) { a.setSlotOrder(order); a.setScheduledTime(cursor); a.setStatus("SCHEDULED"); assignmentRepository.save(a); } order++; cursor = cursor.plusMinutes(slot); } return Map.of("dryRun", Boolean.TRUE.equals(request.getDryRun()), "items", result); }
+    public Map<String, Object> autoSchedule(UUID id, ScheduleExamRequest request) {
+        ExamSession session = examSessionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Exam session not found"));
+        authorizeOwner(session);
+        return examAttemptService.autoSchedule(id, request);
+    }
 
     @Override
     @Transactional
-    public void deleteSession(UUID id) { ExamSession s = examSessionRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Exam session not found")); authorizeOwner(s); if (assignmentRepository.findByExamSessionSessionId(id).stream().anyMatch(a -> attemptRepository.findByAssignment_AssignmentId(a.getAssignmentId()).isPresent())) throw new ConflictException("Session has attempts; use cancel instead"); examSessionRepository.delete(s); }
+    public void deleteSession(UUID id) { ExamSession s = examSessionRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Exam session not found")); authorizeOwner(s); if (assignmentRepository.findByExamSessionSessionId(id).stream().anyMatch(a -> !attemptRepository.findAllByAssignment_AssignmentIdOrderByStartTimeAsc(a.getAssignmentId()).isEmpty())) throw new ConflictException("Session has attempts; use cancel instead"); examSessionRepository.delete(s); }
 
     @Override
     @Transactional
     public StudentSessionAssignmentResponse updateAssignmentSchedule(UUID sessionId, UUID studentId, UpdateAssignmentScheduleRequest request) {
         ExamSession s = examSessionRepository.findById(sessionId).orElseThrow(() -> new ResourceNotFoundException("Exam session not found")); authorizeOwner(s);
         StudentSessionAssignment a = assignmentRepository.findByExamSessionSessionIdAndStudentUserId(sessionId, studentId).orElseThrow(() -> new ResourceNotFoundException("Student assignment not found"));
-        if (List.of("IN_PROGRESS", "COMPLETED", "ABSENT", "CANCELLED").contains(a.getStatus())) throw new ConflictException("Assignment can no longer be rescheduled");
-        ensureNoScheduleConflict(studentId, request.getScheduledTime(), s.getTimeLimitMinutes());
-        ensureNoSessionOverlap(sessionId, request.getScheduledTime(), s.getTimeLimitMinutes(), a.getAssignmentId());
-        a.setScheduledTime(request.getScheduledTime()); a.setStatus("SCHEDULED");
-        return assignmentResponse(assignmentRepository.save(a));
+        int attemptNo = request.getAttemptNo() == null ? 1 : request.getAttemptNo();
+        examAttemptService.scheduleEnrollmentAttempt(sessionId, studentId, attemptNo, request.getScheduledTime());
+        if (attemptNo == 1) { a.setScheduledTime(request.getScheduledTime()); a.setStatus("SCHEDULED"); assignmentRepository.save(a); }
+        return attemptRosterService.map(sessionId, List.of(a)).getFirst();
     }
 
     @Override
@@ -236,8 +296,17 @@ public class ExamSessionServiceImpl implements ExamSessionService {
     public void removeStudent(UUID sessionId, UUID studentId) {
         ExamSession s = examSessionRepository.findById(sessionId).orElseThrow(() -> new ResourceNotFoundException("Exam session not found")); authorizeOwner(s);
         StudentSessionAssignment a = assignmentRepository.findByExamSessionSessionIdAndStudentUserId(sessionId, studentId).orElseThrow(() -> new ResourceNotFoundException("Student assignment not found"));
-        if (List.of("IN_PROGRESS", "COMPLETED").contains(a.getStatus())) throw new ConflictException("Student cannot be removed after the assignment has started");
-        assignmentRepository.delete(a);
+        List<com.swd392.aiviva.exam.attempt.entity.ExamAttempt> rows = examAttemptService.rowsForEnrollment(sessionId, studentId);
+        if (rows.stream().anyMatch(row -> "IN_PROGRESS".equals(row.getStatus()))) {
+            throw new ConflictException("Student cannot be removed while an attempt is in progress", "ATTEMPT_IN_PROGRESS");
+        }
+        boolean hasCompleted = rows.stream().anyMatch(row -> "COMPLETED".equals(row.getStatus()));
+        rows.stream().filter(row -> "SCHEDULED".equals(row.getStatus()))
+                .forEach(row -> examAttemptService.cancel(row.getAttemptId(), "Student removed from exam"));
+        a.setRemovedAt(OffsetDateTime.now());
+        a.setStatus(hasCompleted ? "COMPLETED" : "CANCELLED");
+        assignmentRepository.save(a);
+        examAttemptService.auditEnrollmentRemoved(sessionId, studentId, "Student removed from exam roster");
     }
 
     @Override
@@ -248,18 +317,65 @@ public class ExamSessionServiceImpl implements ExamSessionService {
         List<Map<String,Object>> added = new ArrayList<>(), skipped = new ArrayList<>();
         try {
             String filename = file.getOriginalFilename() == null ? "" : file.getOriginalFilename().toLowerCase(Locale.ROOT);
-            List<String> identifiers = new ArrayList<>();
+            List<ImportStudentRow> rows = new ArrayList<>();
             if (filename.endsWith(".csv")) {
-                try (var reader = new java.io.InputStreamReader(file.getInputStream(), java.nio.charset.StandardCharsets.UTF_8); var csv = org.apache.commons.csv.CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).build().parse(reader)) {
-                    for (var row : csv) { String value = row.isMapped("studentCode") ? row.get("studentCode") : row.isMapped("email") ? row.get("email") : row.get(0); if (value != null && !value.isBlank()) identifiers.add(value.trim()); }
+                try (var reader = new java.io.InputStreamReader(file.getInputStream(), java.nio.charset.StandardCharsets.UTF_8);
+                     var csv = org.apache.commons.csv.CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).build().parse(reader)) {
+                    int rowNumber = 2;
+                    for (var csvRow : csv) {
+                        String identifier = csvRow.isMapped("studentCode") ? csvRow.get("studentCode")
+                                : csvRow.isMapped("email") ? csvRow.get("email") : csvRow.get(0);
+                        if (identifier == null || identifier.isBlank()) { rowNumber++; continue; }
+                        String extraValue = csvRow.isMapped("extra_attempts") ? csvRow.get("extra_attempts")
+                                : csvRow.isMapped("extraAttempts") ? csvRow.get("extraAttempts") : "";
+                        try { rows.add(new ImportStudentRow(rowNumber, identifier.trim(), parseExtraAttempts(extraValue), null)); }
+                        catch (RuntimeException exception) { rows.add(new ImportStudentRow(rowNumber, identifier.trim(), 0, "INVALID_EXTRA_ATTEMPTS")); }
+                        rowNumber++;
+                    }
                 }
             } else if (filename.endsWith(".xlsx")) {
-                try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(file.getInputStream())) { var sheet = workbook.getSheetAt(0); for (int i=1;i<=sheet.getLastRowNum();i++) { var cell=sheet.getRow(i)==null?null:sheet.getRow(i).getCell(0); if(cell!=null&&!cell.toString().isBlank()) identifiers.add(cell.toString().trim()); } }
+                try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(file.getInputStream())) {
+                    var sheet = workbook.getSheetAt(0);
+                    for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                        var dataRow = sheet.getRow(i);
+                        var identifierCell = dataRow == null ? null : dataRow.getCell(0);
+                        if (identifierCell == null || identifierCell.toString().isBlank()) continue;
+                        var extraCell = dataRow.getCell(1);
+                        String extraValue = extraCell == null ? "" : extraCell.toString().trim();
+                        try { rows.add(new ImportStudentRow(i + 1, identifierCell.toString().trim(), parseExtraAttempts(extraValue), null)); }
+                        catch (RuntimeException exception) { rows.add(new ImportStudentRow(i + 1, identifierCell.toString().trim(), 0, "INVALID_EXTRA_ATTEMPTS")); }
+                    }
+                }
             } else throw new BusinessException("Only CSV and XLSX imports are supported");
-            int row = 2; for (String identifier : identifiers) { AppUser st = userRepository.findByStudentOrStaffCode(identifier).orElseGet(() -> userRepository.findByEmail(identifier).orElse(null)); if(st==null){skipped.add(Map.of("identifier",identifier,"row",row,"reason","NOT_FOUND")); row++; continue;} if(st.getRole()==null||!"ST".equalsIgnoreCase(st.getRole().getRoleCode())||Boolean.FALSE.equals(st.getIsActive())){skipped.add(Map.of("identifier",identifier,"row",row,"reason","NOT_ACTIVE_STUDENT"));row++;continue;} if(assignmentRepository.existsByExamSessionSessionIdAndStudentUserId(sessionId,st.getUserId())){skipped.add(Map.of("identifier",identifier,"row",row,"reason","ALREADY_ASSIGNED"));row++;continue;} StudentSessionAssignment a=assignmentRepository.save(StudentSessionAssignment.builder().examSession(s).student(st).status("PENDING").build()); added.add(Map.of("identifier",identifier,"assignmentId",a.getAssignmentId())); row++; }
+            for (ImportStudentRow row : rows) {
+                if (row.error() != null) { skipped.add(Map.of("identifier", row.identifier(), "row", row.row(), "reason", row.error())); continue; }
+                AppUser student = userRepository.findByStudentOrStaffCode(row.identifier())
+                        .orElseGet(() -> userRepository.findByEmail(row.identifier()).orElse(null));
+                if (student == null) { skipped.add(Map.of("identifier", row.identifier(), "row", row.row(), "reason", "NOT_FOUND")); continue; }
+                if (student.getRole() == null || !"ST".equalsIgnoreCase(student.getRole().getRoleCode()) || Boolean.FALSE.equals(student.getIsActive())) {
+                    skipped.add(Map.of("identifier", row.identifier(), "row", row.row(), "reason", "NOT_ACTIVE_STUDENT")); continue;
+                }
+                if (assignmentRepository.existsByExamSessionSessionIdAndStudentUserId(sessionId, student.getUserId())) {
+                    skipped.add(Map.of("identifier", row.identifier(), "row", row.row(), "reason", "ALREADY_ASSIGNED")); continue;
+                }
+                StudentSessionAssignment enrollment = assignmentRepository.save(StudentSessionAssignment.builder()
+                        .examSession(s).student(student).status("PENDING").build());
+                if (row.extraAttempts() > 0) examAttemptService.grant(sessionId, student.getUserId(), row.extraAttempts(), "import");
+                added.add(Map.of("identifier", row.identifier(), "row", row.row(), "assignmentId", enrollment.getAssignmentId(),
+                        "extraAttempts", row.extraAttempts()));
+            }
             return new StudentImportResult(added, skipped);
         } catch (java.io.IOException ex) { throw new BusinessException("Failed to parse student import: " + ex.getMessage(), ex); }
     }
+
+    private int parseExtraAttempts(String value) {
+        if (value == null || value.isBlank()) return 0;
+        int parsed = new java.math.BigDecimal(value.trim()).intValueExact();
+        if (parsed < 0) throw new NumberFormatException("extra_attempts must be nonnegative");
+        return parsed;
+    }
+
+    private record ImportStudentRow(int row, String identifier, int extraAttempts, String error) { }
 
     private void readinessOrThrow(ExamSession s) {
         ExamReadinessResponse response = readiness(s);
@@ -270,7 +386,7 @@ public class ExamSessionServiceImpl implements ExamSessionService {
 
     private ExamReadinessResponse readiness(ExamSession session) {
         List<StudentSessionAssignment> assignments = assignmentRepository.findByExamSessionSessionId(session.getSessionId())
-                .stream().filter(a -> !"CANCELLED".equalsIgnoreCase(a.getStatus())).toList();
+                .stream().filter(a -> a.getRemovedAt() == null && !"CANCELLED".equalsIgnoreCase(a.getStatus())).toList();
         Map<BloomLevel, Integer> required = distribution(session);
         Map<String, Long> availableByBloom = new java.util.LinkedHashMap<>();
         Map<String, Long> missingByBloom = new java.util.LinkedHashMap<>();
@@ -306,8 +422,9 @@ public class ExamSessionServiceImpl implements ExamSessionService {
             }
         }
 
-        long unscheduled = assignments.stream().filter(a -> a.getScheduledTime() == null).count();
-        int scheduleOverlaps = countScheduleOverlaps(assignments, session.getTimeLimitMinutes());
+        List<com.swd392.aiviva.exam.attempt.entity.ExamAttempt> scheduledAttempts = examAttemptService.scheduledAttempts(session.getSessionId());
+        long unscheduled = scheduledAttempts.stream().filter(a -> a.getScheduledTime() == null).count();
+        int scheduleOverlaps = countAttemptScheduleOverlaps(scheduledAttempts, session.getTimeLimitMinutes());
         if (scheduleOverlaps > 0) {
             issues.add(ExamReadinessIssue.builder().code("SCHEDULE_OVERLAP").have((long) scheduleOverlaps).build());
             blocking.add("Có " + scheduleOverlaps + " cặp lịch bị trùng.");
@@ -353,6 +470,21 @@ public class ExamSessionServiceImpl implements ExamSessionService {
         return overlaps;
     }
 
+    private int countAttemptScheduleOverlaps(List<com.swd392.aiviva.exam.attempt.entity.ExamAttempt> attempts,
+            Integer duration) {
+        int overlaps = 0;
+        for (int i = 0; i < attempts.size(); i++) {
+            var first = attempts.get(i).getScheduledTime();
+            if (first == null) continue;
+            for (int j = i + 1; j < attempts.size(); j++) {
+                var second = attempts.get(j).getScheduledTime();
+                if (second != null && !attempts.get(i).getStudent().getUserId().equals(attempts.get(j).getStudent().getUserId())
+                        && first.isBefore(second.plusMinutes(duration)) && second.isBefore(first.plusMinutes(duration))) overlaps++;
+            }
+        }
+        return overlaps;
+    }
+
     private int configuredOverlapPercent(ExamSession session) {
         return session.getMaxOverlapPercent() == null ? defaultMaxOverlapPercent : session.getMaxOverlapPercent();
     }
@@ -379,13 +511,24 @@ public class ExamSessionServiceImpl implements ExamSessionService {
     private AppUser resolveCreator(AppUser current, UUID requested) { if (requested == null || current.getRole()==null || !"AD".equalsIgnoreCase(current.getRole().getRoleCode())) return current; return userRepository.findById(requested).orElseThrow(() -> new ResourceNotFoundException("Creator not found")); }
     private AppUser authenticatedUser() { Authentication a=SecurityContextHolder.getContext().getAuthentication(); if(a==null||!a.isAuthenticated()||"anonymousUser".equals(a.getPrincipal())) throw new AccessDeniedException("Authentication is required"); return userRepository.findByEmail(a.getName()).orElseThrow(()->new AccessDeniedException("Authenticated user not found")); }
     private void authorizeLecturerOrAdmin(AppUser u) { String r=u.getRole()==null?"":u.getRole().getRoleCode(); if(!List.of("AD","LE").contains(r.toUpperCase(Locale.ROOT))) throw new AccessDeniedException("Only AD or LE can manage exam sessions"); }
-    private void authorizeOwner(ExamSession s) { AppUser u=authenticatedUser(); authorizeLecturerOrAdmin(u); if(u.getRole()!=null&&"LE".equalsIgnoreCase(u.getRole().getRoleCode())&&s.getCreatedBy()!=null&&!u.getUserId().equals(s.getCreatedBy().getUserId())) throw new AccessDeniedException("Lecturers can only manage sessions they created"); }
+    private void authorizeOwner(ExamSession session) {
+        AppUser user = authenticatedUser();
+        authorizeLecturerOrAdmin(user);
+        if (user.getRole() == null || !"LE".equalsIgnoreCase(user.getRole().getRoleCode())) return;
+        if (session.getCreatedBy() != null && user.getUserId().equals(session.getCreatedBy().getUserId())) return;
+        UUID subjectId = session.getTopic() == null || session.getTopic().getSubject() == null
+                ? null : session.getTopic().getSubject().getSubjectId();
+        if (subjectId == null || !subjectRepository.isLecturerAssigned(subjectId, user.getUserId())) {
+            throw new AccessDeniedException("Lecturer is not assigned to this exam's subject");
+        }
+    }
     private void ensureNoScheduleConflict(UUID studentId, OffsetDateTime time, int duration) { for(StudentSessionAssignment a:assignmentRepository.findByStudentUserId(studentId)) if(a.getScheduledTime()!=null&&!List.of("CANCELLED","ABSENT").contains(a.getStatus())&&time.isBefore(a.getScheduledTime().plusMinutes(duration))&&a.getScheduledTime().isBefore(time.plusMinutes(duration))) throw new ConflictException("Sinh viên đã có lịch thi khác chồng giờ", "SCHEDULE_CONFLICT"); }
     private void ensureNoSessionOverlap(UUID sessionId, OffsetDateTime time, int duration, UUID excluded) { for (StudentSessionAssignment other : assignmentRepository.findByExamSessionSessionId(sessionId)) if ((excluded == null || !excluded.equals(other.getAssignmentId())) && other.getScheduledTime() != null && !List.of("CANCELLED","ABSENT").contains(other.getStatus()) && time.isBefore(other.getScheduledTime().plusMinutes(duration)) && other.getScheduledTime().isBefore(time.plusMinutes(duration))) throw new ConflictException("Khung giờ bị chồng với assignment khác trong phiên", "SCHEDULE_CONFLICT"); }
     private ExamSessionResponse response(ExamSession session) {
         Map<String, Integer> bloomCounts = distribution(session).entrySet().stream()
                 .collect(Collectors.toMap(entry -> entry.getKey().name(), Map.Entry::getValue));
-        List<StudentSessionAssignment> assignments = assignmentRepository.findByExamSessionSessionId(session.getSessionId());
+        List<StudentSessionAssignment> assignments = assignmentRepository.findByExamSessionSessionId(session.getSessionId()).stream()
+                .filter(assignment -> assignment.getRemovedAt() == null).toList();
         Map<String, Object> statistics = Map.of("studentCount", assignments.size(),
                 "completedCount", assignments.stream().filter(a -> "COMPLETED".equals(a.getStatus())).count(),
                 "absentCount", assignments.stream().filter(a -> "ABSENT".equals(a.getStatus())).count());
@@ -405,5 +548,5 @@ public class ExamSessionServiceImpl implements ExamSessionService {
                 .bloomDistribution(bloomCounts).statistics(statistics).readiness(readinessSummary).build();
     }
     private void addStudent(ExamSession session, String identifier, AppUser student, List<Map<String,Object>> added, List<Map<String,Object>> skipped) { String reason=null; if(student==null) reason="NOT_FOUND"; else if(student.getRole()==null||!"ST".equalsIgnoreCase(student.getRole().getRoleCode())) reason="NOT_STUDENT"; else if(Boolean.FALSE.equals(student.getIsActive())) reason="INACTIVE"; else if(assignmentRepository.existsByExamSessionSessionIdAndStudentUserId(session.getSessionId(),student.getUserId())) reason="ALREADY_ASSIGNED"; if(reason!=null){skipped.add(Map.of("identifier",identifier,"reason",reason));return;} StudentSessionAssignment a=assignmentRepository.save(StudentSessionAssignment.builder().examSession(session).student(student).status("PENDING").build()); added.add(Map.of("identifier",identifier,"studentId",student.getUserId(),"assignmentId",a.getAssignmentId(),"status",a.getStatus())); }
-    private StudentSessionAssignmentResponse assignmentResponse(StudentSessionAssignment a) { VivaAttempt attempt=attemptRepository.findByAssignment_AssignmentId(a.getAssignmentId()).orElse(null); var grade=attempt==null?null:gradeRepository.findByAttempt_AttemptId(attempt.getAttemptId()).orElse(null); return StudentSessionAssignmentResponse.builder().assignmentId(a.getAssignmentId()).sessionId(a.getExamSession().getSessionId()).sessionName(a.getExamSession().getSessionName()).studentId(a.getStudent().getUserId()).studentCode(a.getStudent().getStudentOrStaffCode()).studentName(a.getStudent().getFullName()).studentEmail(a.getStudent().getEmail()).scheduledTime(a.getScheduledTime()).status(a.getStatus()).slotOrder(a.getSlotOrder()).cancelledReason(a.getCancelledReason()).attemptId(attempt==null?null:attempt.getAttemptId()).attemptStatus(attempt==null?null:attempt.getStatus()).totalAiScore(grade==null?null:grade.getTotalAiScore()).finalTeacherScore(grade==null?null:grade.getFinalTeacherScore()).build(); }
+    private StudentSessionAssignmentResponse assignmentResponse(StudentSessionAssignment a) { VivaAttempt attempt=attemptRepository.findAllByAssignment_AssignmentIdOrderByStartTimeAsc(a.getAssignmentId()).stream().findFirst().orElse(null); var grade=attempt==null?null:gradeRepository.findByAttempt_AttemptId(attempt.getAttemptId()).orElse(null); return StudentSessionAssignmentResponse.builder().assignmentId(a.getAssignmentId()).sessionId(a.getExamSession().getSessionId()).sessionName(a.getExamSession().getSessionName()).studentId(a.getStudent().getUserId()).studentCode(a.getStudent().getStudentOrStaffCode()).studentName(a.getStudent().getFullName()).studentEmail(a.getStudent().getEmail()).scheduledTime(a.getScheduledTime()).status(a.getStatus()).slotOrder(a.getSlotOrder()).cancelledReason(a.getCancelledReason()).attemptId(attempt==null?null:attempt.getAttemptId()).attemptStatus(attempt==null?null:attempt.getStatus()).totalAiScore(grade==null?null:grade.getTotalAiScore()).finalTeacherScore(grade==null?null:grade.getFinalTeacherScore()).build(); }
 }

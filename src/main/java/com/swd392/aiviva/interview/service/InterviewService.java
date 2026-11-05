@@ -26,6 +26,8 @@ public interface InterviewService {
 
     InterviewResponse completeInterview(UUID attemptId, String fullAudioDataUrl);
 
+    InterviewResponse abandonInterview(UUID attemptId);
+
     byte[] getQuestionSpeechAudio(UUID turnId);
 
     byte[] getQuestionSpeechAudio(UUID turnId, String language);

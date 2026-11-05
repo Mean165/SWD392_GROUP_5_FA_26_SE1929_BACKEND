@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.Set;
 
 public enum GradingStatus {
-    WAITING_SESSION, AI_PENDING, AI_SCORING, AI_SCORED, AI_FAILED, IN_REVIEW, FINALIZED, RELEASED, REOPENED;
+    WAITING_SESSION, AI_PENDING, AI_SCORING, AI_SCORED, AI_FAILED, IN_REVIEW, FINALIZED, RELEASED, REOPENED, VOIDED;
 
     private static final Map<GradingStatus, Set<GradingStatus>> TRANSITIONS = Map.of(
             WAITING_SESSION, EnumSet.of(AI_PENDING),

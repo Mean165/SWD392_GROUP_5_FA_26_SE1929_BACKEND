@@ -10,4 +10,5 @@ public class ScheduleExamRequest {
     private Long seed;
     private Integer slotMinutes;
     private Boolean dryRun = false;
+    private Integer attemptNo = 1;
 }

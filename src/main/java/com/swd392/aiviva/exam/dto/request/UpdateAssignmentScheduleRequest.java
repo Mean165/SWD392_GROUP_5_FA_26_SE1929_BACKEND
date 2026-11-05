@@ -8,4 +8,5 @@ import lombok.Data;
 public class UpdateAssignmentScheduleRequest {
     @NotNull(message = "scheduledTime is required")
     private OffsetDateTime scheduledTime;
+    private Integer attemptNo = 1;
 }

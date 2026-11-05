@@ -53,6 +53,9 @@ public class StudentSessionAssignment implements Serializable {
     @Column(name = "cancelled_reason", columnDefinition = "TEXT")
     private String cancelledReason;
 
+    @Column(name = "removed_at")
+    private OffsetDateTime removedAt;
+
     public ExamSession getSession() {
         return examSession;
     }

@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.swd392.aiviva.exam.entity.ExamSession;
+import com.swd392.aiviva.exam.attempt.repository.ExamAttemptRepository;
 import com.swd392.aiviva.exam.entity.StudentSessionAssignment;
 import com.swd392.aiviva.exam.repository.ExamSessionBloomDistributionRepository;
 import com.swd392.aiviva.exam.repository.ExamSessionRepository;
@@ -59,7 +60,8 @@ class QuestionPlanServiceTest {
                 .examSession(session).build();
         attempt = VivaAttempt.builder().attemptId(attemptId).assignment(assignment).build();
         service = new QuestionPlanService(planRepository, sessionRepository, distributionRepository,
-                assignmentRepository, questionRepository, turnRepository, rubricResolver, attemptRepository);
+                assignmentRepository, questionRepository, turnRepository, rubricResolver, attemptRepository, null,
+                org.mockito.Mockito.mock(ExamAttemptRepository.class));
         when(turnRepository.findByAttempt_AttemptIdOrderByTurnOrderAsc(attemptId)).thenReturn(List.of());
         when(rubricResolver.resolveForQuestion(any())).thenReturn(List.of());
     }
@@ -70,7 +72,6 @@ class QuestionPlanServiceTest {
         Question real = question("Giải thích cách lớp và đối tượng hoạt động trong Java.", "UNDERSTAND");
         when(sessionRepository.findByIdForUpdate(sessionId)).thenReturn(Optional.of(session));
         when(distributionRepository.findBySession_SessionId(sessionId)).thenReturn(List.of());
-        when(assignmentRepository.findByExamSessionSessionId(sessionId)).thenReturn(List.of());
         when(planRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(planRepository.findByAttempt_AttemptIdOrderByPositionAsc(attemptId)).thenReturn(List.of());
         when(questionRepository.findByTopic_TopicIdAndApprovalStatusOrderByCreatedAtAsc(topicId, "APPROVED"))

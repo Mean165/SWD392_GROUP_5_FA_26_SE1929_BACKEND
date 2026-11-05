@@ -291,7 +291,7 @@ ALTER TABLE viva_attempt DROP CONSTRAINT IF EXISTS ck_viva_attempt_status;
 UPDATE viva_attempt SET status='COMPLETED' WHERE upper(status)='SUBMITTED';
 UPDATE viva_attempt SET status='NOT_STARTED' WHERE upper(status) IN ('INVITED','READY');
 ALTER TABLE viva_attempt ADD CONSTRAINT ck_viva_attempt_status
-    CHECK (status IN ('NOT_STARTED','IN_PROGRESS','COMPLETED'));
+    CHECK (status IN ('NOT_STARTED','IN_PROGRESS','COMPLETED','ABANDONED','CANCELLED'));
 
 DELETE FROM student_session_assignment duplicate
 WHERE duplicate.assignment_id IN (

@@ -30,18 +30,20 @@ public class GradingWorkflowJdbcRepository {
 
     public ReconcileResult reconcileCompletedAttempts(UUID actorId, String provider, String model, int configuredSamples) {
         List<AttemptRow> attempts = jdbc.query("""
-                select va.attempt_id, ass.session_id exam_id, ass.student_id,
+                select va.attempt_id, va.exam_attempt_id, ea.attempt_no, ass.session_id exam_id, ass.student_id,
                        coalesce(va.end_time, current_timestamp) finished_at, gs.submission_id existing_submission_id,gs.ai_status
                 from viva_attempt va
                 join student_session_assignment ass on ass.assignment_id=va.assignment_id
+                join exam_attempts ea on ea.attempt_id=va.exam_attempt_id
                 left join grading_submissions gs on gs.attempt_id=va.attempt_id
-                where upper(va.status)='COMPLETED'
+                where upper(va.status)='COMPLETED' and ea.status='COMPLETED' and ea.counted=true
                   and (gs.submission_id is null or (? <> 'disabled' and gs.ai_status='NONE'
                     and coalesce((select auto_ai_scoring from grading_exam_settings where exam_id=ass.session_id),true)))
                   and not exists (select 1 from final_grade_report f where f.attempt_id=va.attempt_id and f.final_teacher_score is not null)
                 order by va.end_time nulls last, va.attempt_id
                 limit 500
                 """, (rs, row) -> new AttemptRow(rs.getObject("attempt_id", UUID.class),
+                rs.getObject("exam_attempt_id", UUID.class), rs.getInt("attempt_no"),
                 rs.getObject("exam_id", UUID.class), rs.getObject("student_id", UUID.class),
                 rs.getObject("finished_at", OffsetDateTime.class),
                 rs.getObject("existing_submission_id", UUID.class), rs.getString("ai_status")), provider);
@@ -56,12 +58,13 @@ public class GradingWorkflowJdbcRepository {
                 String status = autoScore ? "AI_PENDING" : "IN_REVIEW";
                 UUID assigned = jdbc.queryForObject("select created_by from exam_session where session_id=?", UUID.class, attempt.examId());
                 int inserted = jdbc.update("""
-                        insert into grading_submissions(submission_id, attempt_id, exam_id, student_id,
+                    insert into grading_submissions(submission_id, attempt_id, exam_attempt_id, attempt_no, exam_id, student_id,
                           assigned_lecturer_id, status, ai_status, session_finished_at)
-                        values (?, ?, ?, ?, ?, ?, ?, ?)
+                    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         on conflict (attempt_id) do nothing
-                        """, submissionId, attempt.attemptId(), attempt.examId(), attempt.studentId(), assigned,
-                        status, autoScore ? "PENDING" : "NONE", attempt.finishedAt());
+                    """, submissionId, attempt.attemptId(), attempt.examAttemptId(), attempt.attemptNo(),
+                        attempt.examId(), attempt.studentId(), assigned, status,
+                        autoScore ? "PENDING" : "NONE", attempt.finishedAt());
                 if (inserted == 0) continue;
                 UUID rubricSnapshot = snapshot(attempt, submissionId);
                 jdbc.update("update grading_submissions set rubric_snapshot_id=?, updated_at=current_timestamp where submission_id=?",
@@ -147,16 +150,17 @@ public class GradingWorkflowJdbcRepository {
                 submissionId, examId, current + 1, actorId, actorType, action, write(payload), previous, sha256((previous == null ? "" : previous) + "\n" + body));
     }
 
-    public List<Map<String, Object>> queue(UUID examId, String status, OffsetDateTime finishedFrom,
+    public List<Map<String, Object>> queue(UUID examId, String status, Integer attemptNo, OffsetDateTime finishedFrom,
             OffsetDateTime finishedTo, UUID lecturerId, boolean admin, int limit, int offset) {
         String sql = """
-                select gs.submission_id, gs.attempt_id, gs.exam_id, gs.student_id, u.full_name student_name,
+                select gs.submission_id, gs.attempt_id, gs.exam_attempt_id, gs.attempt_no, gs.exam_id, gs.student_id, u.full_name student_name,
                   es.session_name exam_name, gs.status, gs.ai_status, gs.priority_score, gs.priority_reasons::text priority_reasons,
                   gs.session_finished_at, gs.ai_scored_at, gs.finalized_at, gs.version,
                   count(*) over() total_count
                 from grading_submissions gs join app_user u on u.user_id=gs.student_id
                 join exam_session es on es.session_id=gs.exam_id
                 where (:examId is null or gs.exam_id=:examId) and (:status is null or gs.status=:status)
+                  and (:attemptNo is null or gs.attempt_no=:attemptNo)
                   and (:finishedFrom is null or gs.session_finished_at >= :finishedFrom)
                   and (:finishedTo is null or gs.session_finished_at <= :finishedTo)
                   and (:admin or gs.assigned_lecturer_id=:lecturerId or exists (
@@ -166,14 +170,14 @@ public class GradingWorkflowJdbcRepository {
                 limit :limit offset :offset
                 """;
         return named.queryForList(sql, new MapSqlParameterSource().addValue("examId", examId)
-                .addValue("status", status).addValue("finishedFrom", finishedFrom).addValue("finishedTo", finishedTo)
+                .addValue("status", status).addValue("attemptNo", attemptNo).addValue("finishedFrom", finishedFrom).addValue("finishedTo", finishedTo)
                 .addValue("admin", admin).addValue("lecturerId", lecturerId)
                 .addValue("limit", limit).addValue("offset", offset));
     }
 
     public Map<String, Object> detail(UUID submissionId) {
         List<Map<String, Object>> rows = jdbc.queryForList("""
-                select gs.submission_id,gs.attempt_id,gs.exam_id,gs.student_id,gs.assigned_lecturer_id,gs.status,
+                select gs.submission_id,gs.attempt_id,gs.exam_attempt_id,gs.attempt_no,gs.exam_id,gs.student_id,gs.assigned_lecturer_id,gs.status,
                   gs.ai_status,gs.release_status,gs.lock_holder_id,gs.lock_expires_at,gs.session_finished_at,
                   gs.ai_scored_at,gs.finalized_at,gs.finalized_by,gs.finalized_actor_type,gs.released_at,
                   gs.priority_score,gs.priority_reasons::text priority_reasons,gs.current_revision_no,gs.version,
@@ -231,7 +235,7 @@ public class GradingWorkflowJdbcRepository {
 
     public Map<String, Object> submission(UUID submissionId) {
         List<Map<String, Object>> rows = jdbc.queryForList("""
-                select submission_id,attempt_id,exam_id,student_id,assigned_lecturer_id,status,ai_status,release_status,
+                select submission_id,attempt_id,exam_attempt_id,attempt_no,exam_id,student_id,assigned_lecturer_id,status,ai_status,release_status,
                   lock_holder_id,lock_expires_at,session_finished_at,ai_scored_at,finalized_at,finalized_by,finalized_actor_type,
                   released_at,priority_score,priority_reasons::text priority_reasons,
                   current_revision_no,version,created_at,updated_at,rubric_snapshot_id
@@ -244,10 +248,10 @@ public class GradingWorkflowJdbcRepository {
     public UUID claimNextAiRun() {
         List<UUID> ids = jdbc.query("""
                 with candidate as (
-                  select run_id from ai_grading_runs
-                  where (status='PENDING' and (retry_at is null or retry_at <= current_timestamp))
-                     or (status='RUNNING' and lease_expires_at < current_timestamp)
-                  order by created_at for update skip locked limit 1
+                  select r.run_id from ai_grading_runs r join grading_submissions s on s.submission_id=r.submission_id
+                  where s.status <> 'VOIDED' and ((r.status='PENDING' and (r.retry_at is null or r.retry_at <= current_timestamp))
+                     or (r.status='RUNNING' and r.lease_expires_at < current_timestamp))
+                  order by r.created_at for update of r skip locked limit 1
                 )
                 update ai_grading_runs r set status='RUNNING',started_at=coalesce(r.started_at,current_timestamp),
                   attempt_count=r.attempt_count+1,
@@ -261,9 +265,18 @@ public class GradingWorkflowJdbcRepository {
         Map<String, Object> row = jdbc.queryForMap("select submission_id from ai_grading_runs where run_id=?", runId);
         UUID submissionId = (UUID) row.get("submission_id");
         Map<String, Object> submission = submission(submissionId);
-        jdbc.update("update grading_submissions set ai_status='RUNNING',status=case when status='AI_PENDING' then 'AI_SCORING' else status end,version=version+1,updated_at=current_timestamp where submission_id=?",
+        int updated = jdbc.update("update grading_submissions set ai_status='RUNNING',status=case when status='AI_PENDING' then 'AI_SCORING' else status end,version=version+1,updated_at=current_timestamp where submission_id=? and status <> 'VOIDED'",
                 submissionId);
+        if (updated == 0) {
+            jdbc.update("update ai_grading_runs set status='FAILED',error_code='ATTEMPT_VOIDED',finished_at=current_timestamp,lease_expires_at=null where run_id=?",
+                    runId);
+            return;
+        }
         audit(submissionId, (UUID) submission.get("exam_id"), null, "AI", "AI_RUN_STARTED", Map.of("runId", runId));
+    }
+
+    public boolean isSubmissionVoided(UUID submissionId) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("select status='VOIDED' from grading_submissions where submission_id=?", Boolean.class, submissionId));
     }
 
     public Map<String, Object> aiRun(UUID runId) {
@@ -317,6 +330,7 @@ public class GradingWorkflowJdbcRepository {
     public Object parseJson(String json) {
         try { return mapper.readTree(json); } catch (JsonProcessingException e) { return json; }
     }
+    private Map<String, Object> cleanRow(Map<String, Object> row) { return row; }
     private String write(Object value) {
         try { return mapper.writeValueAsString(value); }
         catch (JsonProcessingException e) { throw new IllegalStateException("Could not serialize grading snapshot", e); }
@@ -326,6 +340,6 @@ public class GradingWorkflowJdbcRepository {
         catch (NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
     }
     public record ReconcileResult(int created, int queued) { }
-    private record AttemptRow(UUID attemptId, UUID examId, UUID studentId, OffsetDateTime finishedAt,
+    private record AttemptRow(UUID attemptId, UUID examAttemptId, int attemptNo, UUID examId, UUID studentId, OffsetDateTime finishedAt,
             UUID existingSubmissionId, String aiStatus) { }
 }

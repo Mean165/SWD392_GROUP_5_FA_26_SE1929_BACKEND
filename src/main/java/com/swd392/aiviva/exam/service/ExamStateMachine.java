@@ -20,7 +20,8 @@ public final class ExamStateMachine {
                 || (from.equals("PENDING") && to.equals("SCHEDULED"))
                 || (from.equals("PENDING") && to.equals("CANCELLED"))
                 || (from.equals("SCHEDULED") && (to.equals("IN_PROGRESS") || to.equals("ABSENT") || to.equals("CANCELLED")))
-                || (from.equals("IN_PROGRESS") && to.equals("COMPLETED"));
+                || (from.equals("IN_PROGRESS") && (to.equals("COMPLETED") || to.equals("SCHEDULED")))
+                || (from.equals("COMPLETED") && to.equals("SCHEDULED"));
         if (!valid) throw new ConflictException("Invalid assignment transition: " + from + " -> " + to, "STATE_TRANSITION_INVALID");
     }
 

@@ -17,9 +17,11 @@ public class StartInterviewRequest {
 
     private UUID assignmentId;
 
+    private UUID examAttemptId;
+
     @AssertTrue(message = "assignmentId or sessionId is required")
     public boolean isAssignmentOrSessionProvided() {
-        return assignmentId != null || sessionId != null;
+        return examAttemptId != null || assignmentId != null || sessionId != null;
     }
 
 }

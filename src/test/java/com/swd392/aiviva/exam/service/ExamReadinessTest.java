@@ -9,6 +9,8 @@ import static org.mockito.Mockito.when;
 import com.swd392.aiviva.exam.dto.response.ExamReadinessIssue;
 import com.swd392.aiviva.exam.dto.response.ExamReadinessResponse;
 import com.swd392.aiviva.exam.entity.ExamSession;
+import com.swd392.aiviva.exam.attempt.service.AttemptRosterService;
+import com.swd392.aiviva.exam.attempt.service.ExamAttemptService;
 import com.swd392.aiviva.exam.entity.ExamSessionBloomDistribution;
 import com.swd392.aiviva.exam.entity.StudentSessionAssignment;
 import com.swd392.aiviva.exam.repository.ExamSessionBloomDistributionRepository;
@@ -22,6 +24,7 @@ import com.swd392.aiviva.question.entity.SubjectTopic;
 import com.swd392.aiviva.question.enums.BloomLevel;
 import com.swd392.aiviva.question.repository.QuestionRepository;
 import com.swd392.aiviva.question.repository.SubjectTopicRepository;
+import com.swd392.aiviva.question.repository.SubjectRepository;
 import com.swd392.aiviva.question.service.RubricResolver;
 import com.swd392.aiviva.user.entity.AppUser;
 import com.swd392.aiviva.user.entity.Role;
@@ -47,6 +50,7 @@ class ExamReadinessTest {
     private final StudentSessionAssignmentRepository assignmentRepository = mock(StudentSessionAssignmentRepository.class);
     private final UserRepository userRepository = mock(UserRepository.class);
     private final SubjectTopicRepository topicRepository = mock(SubjectTopicRepository.class);
+    private final SubjectRepository subjectRepository = mock(SubjectRepository.class);
     private final ExamSessionBloomDistributionRepository distributionRepository = mock(ExamSessionBloomDistributionRepository.class);
     private final VivaAttemptRepository attemptRepository = mock(VivaAttemptRepository.class);
     private final QuestionRepository questionRepository = mock(QuestionRepository.class);
@@ -76,8 +80,9 @@ class ExamReadinessTest {
         when(rubricResolver.hasValidRubric(SUBJECT_ID)).thenReturn(true);
         when(rubricResolver.activeRubric(SUBJECT_ID)).thenReturn(Optional.of(
                 com.swd392.aiviva.question.entity.Rubric.builder().build()));
-        service = new ExamSessionServiceImpl(sessionRepository, assignmentRepository, userRepository, topicRepository,
-                distributionRepository, attemptRepository, questionRepository, rubricResolver, gradeRepository, 40);
+        service = new ExamSessionServiceImpl(sessionRepository, assignmentRepository, userRepository, topicRepository, subjectRepository,
+                distributionRepository, attemptRepository, questionRepository, rubricResolver, gradeRepository,
+                mock(AttemptRosterService.class), mock(ExamAttemptService.class), 40);
         SecurityContextHolder.getContext().setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
                 "lecturer@test.local", null, List.of()));
     }

@@ -16,6 +16,8 @@ public class InterviewResponse {
 
     private UUID attemptId;
     private UUID assignmentId;
+    private UUID examAttemptId;
+    private Integer attemptNo;
     private UUID sessionId;
     private UUID studentId;
     private String status;

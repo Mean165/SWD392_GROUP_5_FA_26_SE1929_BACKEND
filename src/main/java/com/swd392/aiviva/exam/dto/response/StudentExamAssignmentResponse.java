@@ -11,6 +11,22 @@ public class StudentExamAssignmentResponse {
 
     public StudentExamAssignmentResponse(UUID assignmentId, OffsetDateTime scheduledTime, String assignmentStatus,
             UUID sessionId, String sessionName, String sessionStatus, Integer timeLimitMinutes,
+            Integer maxMainQuestions, Integer maxFollowupPerQuestion, String topicName, Integer slotOrder) {
+        this.assignmentId = assignmentId;
+        this.scheduledTime = scheduledTime;
+        this.assignmentStatus = assignmentStatus;
+        this.sessionId = sessionId;
+        this.sessionName = sessionName;
+        this.sessionStatus = sessionStatus;
+        this.timeLimitMinutes = timeLimitMinutes;
+        this.maxMainQuestions = maxMainQuestions;
+        this.maxFollowupPerQuestion = maxFollowupPerQuestion;
+        this.topicName = topicName;
+        this.slotOrder = slotOrder;
+    }
+
+    public StudentExamAssignmentResponse(UUID assignmentId, OffsetDateTime scheduledTime, String assignmentStatus,
+            UUID sessionId, String sessionName, String sessionStatus, Integer timeLimitMinutes,
             Integer maxMainQuestions, Integer maxFollowupPerQuestion, UUID attemptId, String attemptStatus,
             String topicName, Integer slotOrder) {
         this(assignmentId, scheduledTime, assignmentStatus, sessionId, sessionName, sessionStatus, timeLimitMinutes,
@@ -48,4 +64,11 @@ public class StudentExamAssignmentResponse {
     private String attemptStatus;
     private String topicName;
     private Integer slotOrder;
+    private int attemptsUsed;
+    private int attemptsAllowed;
+    private int attemptsRemaining;
+    private int extraAttempts;
+    private java.util.List<StudentSessionAssignmentResponse.ExamAttemptItem> attempts;
+    private StudentSessionAssignmentResponse.ExamAttemptItem currentAttempt;
+    private StudentSessionAssignmentResponse.OfficialExamResult officialResult;
 }

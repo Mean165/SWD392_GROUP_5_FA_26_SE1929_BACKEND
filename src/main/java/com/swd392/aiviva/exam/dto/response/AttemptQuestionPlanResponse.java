@@ -22,5 +22,6 @@ public class AttemptQuestionPlanResponse {
         private String questionText;
         private String bloomLevel;
         private OffsetDateTime createdAt;
+        private java.util.List<String> selectionFlags;
     }
 }

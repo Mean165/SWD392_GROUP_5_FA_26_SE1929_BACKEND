@@ -58,6 +58,7 @@ public class GradingAiWorker {
         if (runId == null) return;
         try {
             Map<String, Object> run = repository.aiRun(runId);
+            if (!"RUNNING".equals(run.get("status"))) return;
             Result result = grade(runId, run);
             tx.executeWithoutResult(status -> persist(runId, run, result));
         } catch (Exception exception) {
@@ -178,6 +179,11 @@ public class GradingAiWorker {
 
     private void persist(UUID runId, Map<String, Object> run, Result result) {
         UUID submissionId = (UUID) run.get("submission_id");
+        if (repository.isSubmissionVoided(submissionId)) {
+            jdbc.update("update ai_grading_runs set status='FAILED',error_code='ATTEMPT_VOIDED',finished_at=current_timestamp,lease_expires_at=null where run_id=? and status='RUNNING'", runId);
+            repository.auditAction(submissionId, (UUID) run.get("exam_id"), null, "AI", "AI_RUN_DISCARDED_VOIDED_ATTEMPT", Map.of("runId", runId));
+            return;
+        }
         UUID attemptId = (UUID) run.get("attempt_id");
         int questionCount = result.questions().size();
         BigDecimal overall = BigDecimal.ZERO;

@@ -3,6 +3,9 @@ package com.swd392.aiviva.interview.service;
 import com.swd392.aiviva.common.exception.ConflictException;
 import com.swd392.aiviva.exam.entity.ExamSession;
 import com.swd392.aiviva.exam.entity.StudentSessionAssignment;
+import com.swd392.aiviva.exam.attempt.service.AttemptEligibilityService;
+import com.swd392.aiviva.exam.attempt.entity.ExamAttempt;
+import com.swd392.aiviva.exam.attempt.repository.ExamAttemptRepository;
 import com.swd392.aiviva.exam.entity.ExamSessionBloomDistribution;
 import com.swd392.aiviva.exam.repository.ExamSessionBloomDistributionRepository;
 import com.swd392.aiviva.exam.repository.ExamSessionRepository;
@@ -43,6 +46,8 @@ public class QuestionPlanService {
     private final InteractionTurnRepository turnRepository;
     private final VivaAttemptRepository attemptRepository;
     private final RubricResolver rubricResolver;
+    private final AttemptEligibilityService attemptEligibilityService;
+    private final ExamAttemptRepository examAttemptRepository;
 
     public QuestionPlanService(AttemptQuestionPlanRepository planRepository,
                                ExamSessionRepository sessionRepository,
@@ -51,7 +56,9 @@ public class QuestionPlanService {
                                QuestionRepository questionRepository,
                                InteractionTurnRepository turnRepository,
                                RubricResolver rubricResolver,
-                               VivaAttemptRepository attemptRepository) {
+                               VivaAttemptRepository attemptRepository,
+                               AttemptEligibilityService attemptEligibilityService,
+                               ExamAttemptRepository examAttemptRepository) {
         this.planRepository = planRepository;
         this.sessionRepository = sessionRepository;
         this.distributionRepository = distributionRepository;
@@ -60,6 +67,8 @@ public class QuestionPlanService {
         this.turnRepository = turnRepository;
         this.rubricResolver = rubricResolver;
         this.attemptRepository = attemptRepository;
+        this.attemptEligibilityService = attemptEligibilityService;
+        this.examAttemptRepository = examAttemptRepository;
     }
 
     @Transactional
@@ -78,20 +87,22 @@ public class QuestionPlanService {
         List<Question> selected = new ArrayList<>();
         List<BloomLevel> selectedLevels = new ArrayList<>();
         Set<UUID> previousWindow = previousWindowQuestionIds(attempt.getAssignment());
+        if (attemptEligibilityService != null && attempt.getExamAttemptId() != null) {
+            previousWindow.addAll(attemptEligibilityService.previouslyAskedQuestions(
+                    attemptEligibilityService.findAttempt(attempt.getExamAttemptId())));
+        }
         Map<UUID, Integer> usage = usageByQuestion(session.getSessionId());
         Random random = new Random(attempt.getAttemptId().getMostSignificantBits() ^ attempt.getAttemptId().getLeastSignificantBits());
-        List<String> relaxations = new ArrayList<>();
+        Map<UUID, List<String>> selectionFlags = new HashMap<>();
 
         for (BloomLevel level : BloomLevel.values()) {
             int count = requested.getOrDefault(level, 0);
             for (int i = 0; i < count; i++) {
                 List<Question> candidates = candidates(session, level, selected, previousWindow);
                 if (candidates.isEmpty()) {
-                    relaxations.add("avoid-repeat:" + level.name());
                     candidates = candidatesWithoutWindow(session, level, selected);
                 }
                 if (candidates.isEmpty()) {
-                    relaxations.add("adjacent-bloom:" + level.name());
                     candidates = adjacentCandidates(session, level, selected);
                 }
                 if (candidates.isEmpty()) {
@@ -103,6 +114,9 @@ public class QuestionPlanService {
                 List<Question> tied = candidates.stream().filter(q -> usage.getOrDefault(q.getQuestionId(), 0) == lowest).toList();
                 Question chosen = tied.get(random.nextInt(tied.size()));
                 selected.add(chosen);
+                List<String> flags = new ArrayList<>();
+                if (previousWindow.contains(chosen.getQuestionId())) flags.add("QUESTION_REPEATED_DUE_TO_BANK_SIZE");
+                selectionFlags.put(chosen.getQuestionId(), flags);
                 selectedLevels.add(BloomLevel.parse(chosen.getBloomLevel()));
                 usage.merge(chosen.getQuestionId(), 1, Integer::sum);
             }
@@ -124,9 +138,17 @@ public class QuestionPlanService {
         List<AttemptQuestionPlan> plans = new ArrayList<>();
         for (int i = 0; i < selected.size(); i++) {
             plans.add(AttemptQuestionPlan.builder().attempt(attempt).question(selected.get(i)).position(i + 1)
-                    .bloomLevel(selectedLevels.get(i)).createdAt(OffsetDateTime.now()).build());
+                    .bloomLevel(selectedLevels.get(i)).createdAt(OffsetDateTime.now())
+                    .selectionFlagsJson(selectionFlagsJson(selectionFlags.getOrDefault(selected.get(i).getQuestionId(), List.of())))
+                    .build());
         }
         return planRepository.saveAll(plans);
+    }
+
+    private com.fasterxml.jackson.databind.JsonNode selectionFlagsJson(List<String> flags) {
+        var node = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.arrayNode();
+        flags.forEach(node::add);
+        return node;
     }
 
     @Transactional(readOnly = true)
@@ -225,9 +247,11 @@ public class QuestionPlanService {
     private boolean hasRubric(Question q) { try { rubricResolver.resolveForQuestion(q.getQuestionId()); return true; } catch (RuntimeException ex) { return false; } }
     private Map<UUID, Integer> usageByQuestion(UUID sessionId) {
         Map<UUID, Integer> usage = new HashMap<>();
-        assignmentRepository.findByExamSessionSessionId(sessionId).forEach(a -> attemptRepository.findByAssignment_AssignmentId(a.getAssignmentId())
-                .ifPresent(attempt -> planRepository.findByAttempt_AttemptIdOrderByPositionAsc(attempt.getAttemptId())
-                        .forEach(plan -> usage.merge(plan.getQuestion().getQuestionId(), 1, Integer::sum))));
+        examAttemptRepository.findByExamSession_SessionIdOrderByAssignment_SlotOrderAscAttemptNoAsc(sessionId).stream()
+                .filter(ExamAttempt::isCounted).filter(row -> !"VOIDED".equals(row.getStatus()))
+                .map(ExamAttempt::getInterviewSessionId).filter(java.util.Objects::nonNull)
+                .forEach(interviewId -> planRepository.findByAttempt_AttemptIdOrderByPositionAsc(interviewId)
+                        .forEach(plan -> usage.merge(plan.getQuestion().getQuestionId(), 1, Integer::sum)));
         return usage;
     }
     private Set<UUID> previousWindowQuestionIds(StudentSessionAssignment assignment) {
@@ -244,8 +268,11 @@ public class QuestionPlanService {
             return Set.of();
         }
         Set<UUID> ids = new HashSet<>();
-        previous.forEach(a -> attemptRepository.findByAssignment_AssignmentId(a.getAssignmentId()).ifPresent(attempt ->
-                planRepository.findByAttempt_AttemptIdOrderByPositionAsc(attempt.getAttemptId()).forEach(plan -> ids.add(plan.getQuestion().getQuestionId()))));
+        previous.forEach(a -> examAttemptRepository.findByAssignment_AssignmentIdOrderByAttemptNoAsc(a.getAssignmentId()).stream()
+                .filter(ExamAttempt::isCounted).filter(attempt -> !"VOIDED".equals(attempt.getStatus()))
+                .map(ExamAttempt::getInterviewSessionId).filter(java.util.Objects::nonNull)
+                .forEach(interviewId -> planRepository.findByAttempt_AttemptIdOrderByPositionAsc(interviewId)
+                        .forEach(plan -> ids.add(plan.getQuestion().getQuestionId()))));
         return ids;
     }
 }

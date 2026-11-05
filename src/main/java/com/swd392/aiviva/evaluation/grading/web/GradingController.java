@@ -42,9 +42,10 @@ public class GradingController {
     public ResponseEntity<ApiResponse<Object>> queue(@RequestParam(required = false) UUID examId,
             @RequestParam(required = false) String status, @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) Integer attemptNo,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) OffsetDateTime finishedFrom,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) OffsetDateTime finishedTo) {
-        return ResponseEntity.ok(ApiResponse.success("Grading queue", workflow.queue(examId, status, page, size,
+        return ResponseEntity.ok(ApiResponse.success("Grading queue", workflow.queue(examId, status, attemptNo, page, size,
                 finishedFrom, finishedTo, currentUser.currentUserId(), currentUser.isAdmin())));
     }
 

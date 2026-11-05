@@ -53,8 +53,9 @@ public class StudentExamAssignmentController {
 
     @GetMapping("/{assignmentId}/eligibility")
     public ResponseEntity<ApiResponse<ExamEntryEligibilityResponse>> getEligibility(
-            @PathVariable UUID assignmentId) {
+            @PathVariable UUID assignmentId,
+            @RequestParam(required = false) UUID examAttemptId) {
         return ResponseEntity.ok(ApiResponse.success(
-                "Exam entry eligibility retrieved", assignmentService.getEligibility(assignmentId)));
+                "Exam entry eligibility retrieved", assignmentService.getEligibility(assignmentId, examAttemptId)));
     }
 }

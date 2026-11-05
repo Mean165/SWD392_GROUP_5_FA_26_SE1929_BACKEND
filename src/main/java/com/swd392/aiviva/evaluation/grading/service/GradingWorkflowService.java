@@ -16,6 +16,7 @@ import com.swd392.aiviva.evaluation.grading.web.GradingController.ReopenRequest;
 import com.swd392.aiviva.evaluation.grading.web.GradingController.SaveScoresRequest;
 import com.swd392.aiviva.evaluation.grading.web.GradingController;
 import com.swd392.aiviva.evaluation.grading.web.GradingApiException;
+import com.swd392.aiviva.exam.attempt.service.OfficialExamResultService;
 import com.swd392.aiviva.evaluation.repository.FinalGradeReportRepository;
 import com.swd392.aiviva.user.entity.AppUser;
 import java.math.BigDecimal;
@@ -39,18 +40,21 @@ public class GradingWorkflowService {
     private final BigDecimal roundingStep;
     private final int configuredSamples;
     private final int maxManualRuns;
+    private final OfficialExamResultService officialExamResultService;
 
     public GradingWorkflowService(GradingWorkflowJdbcRepository repository,
             FinalGradeReportRepository gradeReports, ObjectMapper mapper,
             @Value("${grading.rounding-step:0.25}") BigDecimal roundingStep,
             @Value("${grading.ai.samples:3}") int configuredSamples,
-            @Value("${grading.ai.max-manual-runs:3}") int maxManualRuns) {
+            @Value("${grading.ai.max-manual-runs:3}") int maxManualRuns,
+            OfficialExamResultService officialExamResultService) {
         this.repository = repository;
         this.gradeReports = gradeReports;
         this.mapper = mapper;
         this.roundingStep = roundingStep;
         this.configuredSamples = Math.max(1, Math.min(10, configuredSamples));
         this.maxManualRuns = Math.max(1, maxManualRuns);
+        this.officialExamResultService = officialExamResultService;
     }
 
     public Map<String, Object> capabilities(GradingLlmProvider provider) {
@@ -61,7 +65,7 @@ public class GradingWorkflowService {
     }
 
     @Transactional
-    public Map<String, Object> queue(UUID examId, String status, int page, int size,
+    public Map<String, Object> queue(UUID examId, String status, Integer attemptNo, int page, int size,
             OffsetDateTime finishedFrom, OffsetDateTime finishedTo, UUID actor, boolean admin) {
         if (page < 0 || size < 1 || size > 100) throw new BusinessException("page must be >= 0 and size must be 1..100");
         if (page > 100_000) throw new BusinessException("page is too large");
@@ -73,7 +77,7 @@ public class GradingWorkflowService {
         }
         UUID filterExam = examId;
         if (filterExam != null) requireExamAccess(filterExam, actor, admin);
-        List<Map<String, Object>> items = repository.queue(filterExam, status, finishedFrom, finishedTo, actor, admin, size, page * size);
+        List<Map<String, Object>> items = repository.queue(filterExam, status, attemptNo, finishedFrom, finishedTo, actor, admin, size, page * size);
         long total = items.isEmpty() ? 0 : ((Number) items.get(0).get("total_count")).longValue();
         items.forEach(item -> item.remove("total_count"));
         return Map.of("items", items, "page", page, "size", size, "total", total);
@@ -157,7 +161,8 @@ public class GradingWorkflowService {
                   join ai_rubric_assessment a on a.run_id=r.run_id
                   join interaction_turn t on t.turn_id=a.turn_id
                   join lecturer_criterion_scores l on l.submission_id=s.submission_id and l.question_id=t.main_question_id and l.criteria_id=a.criteria_id
-                  where s.exam_id=? and r.run_no=(select max(r2.run_no) from ai_grading_runs r2 where r2.submission_id=s.submission_id and r2.status='COMPLETED')
+                  where s.exam_id=? and s.status <> 'VOIDED'
+                    and r.run_no=(select max(r2.run_no) from ai_grading_runs r2 where r2.submission_id=s.submission_id and r2.status='COMPLETED')
                 )
                 select count(*) comparisons,coalesce(avg(delta),0) mean_absolute_error,
                   coalesce(avg(case when exact_match then 1.0 else 0.0 end),0) exact_agreement,
@@ -476,7 +481,10 @@ public class GradingWorkflowService {
         if ("AUTO_AFTER_FINALIZE".equals(releasePolicy)) {
             repository.update("update grading_submissions set status='RELEASED',release_status='RELEASED',released_at=current_timestamp,version=version+1 where submission_id=? and version=? and status='FINALIZED'", id, request.version() + 1);
             repository.auditAction(id, (UUID) submission.get("exam_id"), actor, actorType(admin), "AUTO_RELEASED_AFTER_FINALIZE", Map.of());
+            officialExamResultService.markReleased((UUID) submission.get("exam_id"), (UUID) submission.get("student_id"), actor, actorType(admin));
         }
+        officialExamResultService.recompute((UUID) submission.get("exam_id"), (UUID) submission.get("student_id"),
+                actor, actorType(admin), "ATTEMPT_FINALIZED");
         return repository.detail(id);
     }
 
@@ -489,6 +497,7 @@ public class GradingWorkflowService {
         int updated = repository.update("update grading_submissions set status='RELEASED',release_status='RELEASED',released_at=current_timestamp,version=version+1 where submission_id=? and version=? and status='FINALIZED'", id, version);
         if (updated == 0) throw new ConflictException("Submission version changed; reload the item", "STALE_VERSION");
         repository.auditAction(id, (UUID) submission.get("exam_id"), actor, actorType(admin), "RELEASED", Map.of());
+        officialExamResultService.markReleased((UUID) submission.get("exam_id"), (UUID) submission.get("student_id"), actor, actorType(admin));
         return repository.submission(id);
     }
 
@@ -504,6 +513,8 @@ public class GradingWorkflowService {
         if (updated == 0) throw new ConflictException("Submission version changed; reload the item", "STALE_VERSION");
         repository.update("update final_grade_report set final_teacher_score=null,finalized_by_lecturer_id=null,finalized_at=null where attempt_id=?",
                 submission.get("attempt_id"));
+        officialExamResultService.recompute((UUID) submission.get("exam_id"), (UUID) submission.get("student_id"),
+                actor, actorType(admin), "GRADING_REOPENED");
         repository.auditAction(id, (UUID) submission.get("exam_id"), actor, actorType(admin), "REOPENED",
                 Map.of("reason", request.reason(), "note", request.note() == null ? "" : request.note()));
         return repository.submission(id);
