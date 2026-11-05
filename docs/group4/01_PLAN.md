@@ -20,14 +20,14 @@
 ## Milestones
 
 1. G0 survey/plan completed before code.
-2. G1 additive SQL/schema, immutable audit/revision primitives and state machine tests. Implemented in the current worktree; migration is idempotent and loaded after `schema.sql` by Spring SQL init.
-3. G2 completed-attempt reconciliation, durable submissions, queue filters/page, ownership/assignment checks, capabilities endpoint.
-4. G3 local LLM provider boundary, validated structured AI run, evidence verification, K-sample aggregation and retry/recovery.
-5. G4 lecturer claim/lease, draft scores/comments, accept/override/manual operations, finalize/reopen/revision, release policy.
-6. G5 audio access audit, agreement analytics and metrics.
-7. G6 OpenAPI/API contract, runbook, local mock workflow, compatibility notes for FE numeric-ID stub vs backend UUIDs, and a standalone FE prompt.
+2. G1 additive SQL/schema, immutable audit/revision primitives and state machine tests. Implemented in G1 commit; migration is idempotent and applied with PostgreSQL `psql` because Spring's SQL initializer cannot safely split PL/pgSQL dollar-quoted blocks.
+3. G2 completed-attempt reconciliation, durable submissions, queue filters/page, ownership/assignment checks and capability probe implemented. Database migration and runtime provider still require user environment setup before real execution.
+4. G3 local-compatible LLM boundary, strict response validation, exact evidence verification, K-sample median/variance, pattern PII redaction and bounded retry/recovery implemented. No local grading model has been configured or run here.
+5. G4 lecturer claim/lease, optimistic versions, draft score/notes, accept/override/manual operations, finalize/reopen/revision and release policy implemented.
+6. G5 audio view audit is intentionally not exposed until signed URL authorization is designed. Agreement endpoint is implemented (MAE/exact/within-one); Micrometer registry/metrics and bulk actions are not implemented.
+7. G6/G7 contracts, runbook, settings, known limitations, and standalone FE prompt are drafted from actual routes. API code has one combined implementation commit because G2-G5 are tightly coupled; docs will be committed separately.
 
-Each milestone is tested before its commit. No FE files are edited. Do not stage unrelated worktree changes.
+G1 is committed. The combined API/AI/lecturer implementation passes the backend suite before its commit; docs are committed separately. No FE files are edited. Do not stage unrelated worktree changes.
 
 ## Initial FE Contract Mapping
 
