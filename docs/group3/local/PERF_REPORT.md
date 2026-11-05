@@ -13,7 +13,7 @@ Status: **synthetic model-backed smoke tests ran on CPU and GPU**. Values below 
 
 - CPU image: Python 3.11, PyTorch CPU 2.14.1, faster-whisper 1.2.1, CTranslate2 4.8.5, Silero VAD 6.2.3, Piper 1.8.0, FastAPI 0.162.0, Uvicorn 0.54.0.
 - GPU image: Python 3.10, CUDA 12.3.2/cuDNN 9, PyTorch CPU 2.14.1 for Silero VAD; CTranslate2 used CUDA for STT.
-- Python fake-engine contract tests: 6 passed. Java backend suite: 149 tests passed, including the local HTTP adapter contract tests. FE device-check focused tests/build: 8 passed; production build passed with an existing bundle-size warning.
+- Python inference tests: 8 passed, including VAD-missed speech fallback and Vietnamese promotional-audio hallucination filtering. Java backend suite: 153 tests passed, including question-plan repair and local HTTP adapter contracts (one token-dependent runtime test is skipped in the full suite). FE device-check tests: 8 passed; interview plan UI tests: 3 passed; production build passed with an existing bundle-size warning.
 
 ## Synthetic Smoke Samples
 

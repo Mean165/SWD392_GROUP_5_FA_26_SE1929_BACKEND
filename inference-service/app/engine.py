@@ -29,6 +29,12 @@ SAMPLE_RATE = 16_000
 HALLUCINATION_PHRASES = {
     "thanks for watching",
     "please subscribe",
+    "hay subscribe",
+    "hãy subscribe",
+    "đừng quên subscribe",
+    "nhấn subscribe",
+    "la la school",
+    "để không bỏ lỡ những video hấp dẫn",
     "cảm ơn các bạn đã theo dõi",
     "đăng ký kênh",
 }

@@ -99,7 +99,10 @@ class Settings:
             stt_repeat_limit=_int("LOCAL_STT_REPEAT_LIMIT", 4, 2),
             hallucination_phrases=tuple(
                 phrase.strip().casefold()
-                for phrase in os.getenv("LOCAL_STT_HALLUCINATION_PHRASES", "thanks for watching,please subscribe").split(",")
+                for phrase in os.getenv(
+                    "LOCAL_STT_HALLUCINATION_PHRASES",
+                    "thanks for watching,please subscribe,hãy subscribe,đừng quên subscribe,la la school",
+                ).split(",")
                 if phrase.strip()
             ),
             tts_engine=os.getenv("LOCAL_TTS_ENGINE", "piper").lower(),

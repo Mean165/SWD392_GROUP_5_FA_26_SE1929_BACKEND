@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from app import main
-from app.engine import EngineStatus, Transcript
+from app.engine import EngineStatus, SpeechEngine, Transcript
 
 
 class SilenceVad:
@@ -196,3 +196,11 @@ def test_end_runs_final_decode_when_streaming_vad_missed_the_start(monkeypatch):
         assert committed["type"] == "committed"
         assert committed["text"] == "xin chao"
         assert closed["type"] == "closed"
+
+
+def test_filters_vietnamese_subscription_hallucination():
+    engine = SpeechEngine(main.settings)
+
+    assert engine._is_hallucination(
+        "Hãy subscribe cho kênh La La School để không bỏ lỡ những video hấp dẫn"
+    )
