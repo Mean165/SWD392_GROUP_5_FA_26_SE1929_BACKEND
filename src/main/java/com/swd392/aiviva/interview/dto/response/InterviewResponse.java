@@ -23,6 +23,7 @@ public class InterviewResponse {
     private OffsetDateTime endTime;
     private InteractionTurnResponse currentTurn;
     private List<InteractionTurnResponse> turns;
+    private List<PlannedQuestionResponse> questionPlan;
     private Integer totalMainQuestions;
     private Integer currentMainPosition;
 }

@@ -1569,14 +1569,6 @@ SELECT uuid_generate_v5(uuid_ns_url(), 'aiviva:question:' || t.topic_code || ':C
        'CREATE', 'LECTURER_CREATED', 'APPROVED', CURRENT_TIMESTAMP
 FROM subject_topic t
 ON CONFLICT (question_id) DO NOTHING;
-
-INSERT INTO question (question_id, topic_id, created_by, question_text, bloom_level, source_type, approval_status, created_at)
-SELECT uuid_generate_v5(uuid_ns_url(), 'aiviva:question:' || t.topic_code || ':' || l.level_code || ':2'), t.topic_id,
-       t.created_by, 'Câu hỏi bổ sung mức ' || l.level_code || ' cho chủ đề ' || t.topic_name || '.',
-       l.level_code, 'LECTURER_CREATED', 'APPROVED', CURRENT_TIMESTAMP
-FROM subject_topic t
-CROSS JOIN (VALUES ('REMEMBER'),('UNDERSTAND'),('APPLY'),('ANALYZE'),('EVALUATE'),('CREATE')) AS l(level_code)
-ON CONFLICT (question_id) DO NOTHING;
 COMMIT;
 
 BEGIN;

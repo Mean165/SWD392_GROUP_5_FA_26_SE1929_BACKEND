@@ -14,6 +14,7 @@ import com.swd392.aiviva.interview.dto.request.StartInterviewRequest;
 import com.swd392.aiviva.interview.dto.request.SubmitAnswerRequest;
 import com.swd392.aiviva.interview.dto.response.InteractionTurnResponse;
 import com.swd392.aiviva.interview.dto.response.InterviewResponse;
+import com.swd392.aiviva.interview.dto.response.PlannedQuestionResponse;
 import com.swd392.aiviva.interview.dto.response.SubmitAnswerResponse;
 import com.swd392.aiviva.interview.dto.AnswerAnalysisContext;
 import com.swd392.aiviva.interview.dto.AnswerAnalysisResult;
@@ -694,6 +695,21 @@ public class InterviewServiceImpl implements InterviewService {
         List<InteractionTurnResponse> turnResponses = turns != null
                 ? turns.stream().map(this::toTurnResponse).toList()
                 : List.of();
+        List<PlannedQuestionResponse> plannedQuestions = questionPlanService == null
+                ? List.of()
+                : questionPlanService.getPlan(attempt.getAttemptId()).stream()
+                        .map(plan -> new PlannedQuestionResponse(plan.getQuestion().getQuestionId(),
+                                plan.getPosition(), plan.getBloomLevel().name(), plan.getQuestion().getQuestionText()))
+                        .toList();
+        if (plannedQuestions.isEmpty() && turns != null) {
+            plannedQuestions = turns.stream()
+                    .filter(turn -> "MAIN".equalsIgnoreCase(turn.getTurnType()) && turn.getMainQuestion() != null)
+                    .map(turn -> new PlannedQuestionResponse(turn.getMainQuestion().getQuestionId(),
+                            Math.toIntExact(turns.stream().filter(candidate -> "MAIN".equalsIgnoreCase(candidate.getTurnType())
+                                    && candidate.getTurnOrder() <= turn.getTurnOrder()).count()),
+                            turn.getMainQuestion().getBloomLevel(), turn.getMainQuestion().getQuestionText()))
+                    .toList();
+        }
 
         return InterviewResponse.builder()
                 .attemptId(attempt.getAttemptId())
@@ -705,6 +721,7 @@ public class InterviewServiceImpl implements InterviewService {
                 .endTime(attempt.getEndTime())
                 .currentTurn(currentTurn != null ? toTurnResponse(currentTurn) : null)
                 .turns(turnResponses)
+                .questionPlan(plannedQuestions)
                 .totalMainQuestions(assignment != null && assignment.getSession() != null ? assignment.getSession().getMaxMainQuestions() : null)
                 .currentMainPosition(currentTurn == null ? null : Math.toIntExact(turns.stream().filter(t -> "MAIN".equalsIgnoreCase(t.getTurnType()) && t.getTurnOrder() <= currentTurn.getTurnOrder()).count()))
                 .build();

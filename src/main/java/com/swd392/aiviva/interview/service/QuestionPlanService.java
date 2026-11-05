@@ -65,7 +65,7 @@ public class QuestionPlanService {
     @Transactional
     public List<AttemptQuestionPlan> generatePlan(VivaAttempt attempt) {
         List<AttemptQuestionPlan> existing = planRepository.findByAttempt_AttemptIdOrderByPositionAsc(attempt.getAttemptId());
-        if (!existing.isEmpty()) return existing;
+        if (!existing.isEmpty()) return repairUnansweredPlaceholders(attempt, existing);
         ExamSession session = sessionRepository.findByIdForUpdate(attempt.getAssignment().getExamSession().getSessionId())
                 .orElseThrow(() -> new ConflictException("Exam session is unavailable while generating the question plan."));
         if (session.getTopic() == null) throw new ConflictException("Exam session has no topic configured.");
@@ -111,7 +111,8 @@ public class QuestionPlanService {
         // Preserve questions already asked by legacy attempts at their earliest positions.
         List<Question> legacy = turnRepository.findByAttempt_AttemptIdOrderByTurnOrderAsc(attempt.getAttemptId()).stream()
                 .filter(t -> "MAIN".equalsIgnoreCase(t.getTurnType()) && t.getMainQuestion() != null)
-                .map(InteractionTurn::getMainQuestion).distinct().toList();
+                .map(InteractionTurn::getMainQuestion).filter(question -> !isGenericPlaceholder(question))
+                .distinct().toList();
         for (int i = 0; i < Math.min(legacy.size(), selected.size()); i++) {
             Question old = legacy.get(i);
             int found = selected.indexOf(old);
@@ -165,7 +166,61 @@ public class QuestionPlanService {
     }
     private List<Question> baseCandidates(ExamSession session, BloomLevel level) {
         return questionRepository.findByTopic_TopicIdAndApprovalStatusOrderByCreatedAtAsc(session.getTopic().getTopicId(), "APPROVED").stream()
-                .filter(q -> level.name().equalsIgnoreCase(q.getBloomLevel())).filter(this::hasRubric).toList();
+                .filter(q -> level.name().equalsIgnoreCase(q.getBloomLevel()))
+                .filter(q -> !isGenericPlaceholder(q))
+                .filter(this::hasRubric).toList();
+    }
+
+    private List<AttemptQuestionPlan> repairUnansweredPlaceholders(
+            VivaAttempt attempt, List<AttemptQuestionPlan> existing) {
+        if (existing.stream().noneMatch(plan -> isGenericPlaceholder(plan.getQuestion()))) return existing;
+
+        ExamSession session = attempt.getAssignment().getExamSession();
+        Map<Integer, InteractionTurn> mainTurns = new HashMap<>();
+        int position = 0;
+        for (InteractionTurn turn : turnRepository.findByAttempt_AttemptIdOrderByTurnOrderAsc(attempt.getAttemptId())) {
+            if ("MAIN".equalsIgnoreCase(turn.getTurnType())) mainTurns.put(++position, turn);
+        }
+        Set<UUID> selectedIds = existing.stream()
+                .filter(plan -> !isGenericPlaceholder(plan.getQuestion()))
+                .map(plan -> plan.getQuestion().getQuestionId())
+                .collect(Collectors.toCollection(HashSet::new));
+        Map<UUID, Integer> usage = usageByQuestion(session.getSessionId());
+
+        for (AttemptQuestionPlan plan : existing) {
+            Question previous = plan.getQuestion();
+            if (!isGenericPlaceholder(previous)) continue;
+            InteractionTurn turn = mainTurns.get(plan.getPosition());
+            if (turn != null && turn.getTranscriptText() != null && !turn.getTranscriptText().isBlank()) {
+                selectedIds.add(previous.getQuestionId());
+                continue;
+            }
+            List<Question> candidates = baseCandidates(session, plan.getBloomLevel()).stream()
+                    .filter(candidate -> !selectedIds.contains(candidate.getQuestionId())).toList();
+            if (candidates.isEmpty()) {
+                throw new ConflictException("No approved non-placeholder question is available for Bloom level "
+                        + plan.getBloomLevel().name() + ".", "QUESTION_PLAN_INSUFFICIENT");
+            }
+            Question replacement = candidates.stream()
+                    .min(Comparator.comparingInt(candidate -> usage.getOrDefault(candidate.getQuestionId(), 0)))
+                    .orElseThrow();
+            plan.setQuestion(replacement);
+            planRepository.save(plan);
+            selectedIds.add(replacement.getQuestionId());
+            if (turn != null && turn.getMainQuestion() != null
+                    && turn.getMainQuestion().getQuestionId().equals(previous.getQuestionId())) {
+                turn.setMainQuestion(replacement);
+                turn.setAiQuestionText(replacement.getQuestionText());
+                turnRepository.save(turn);
+            }
+        }
+        return existing;
+    }
+
+    private boolean isGenericPlaceholder(Question question) {
+        return question != null && question.getQuestionText() != null
+                && question.getQuestionText().stripLeading().toLowerCase(java.util.Locale.ROOT)
+                        .startsWith("câu hỏi bổ sung mức ");
     }
     private boolean hasRubric(Question q) { try { rubricResolver.resolveForQuestion(q.getQuestionId()); return true; } catch (RuntimeException ex) { return false; } }
     private Map<UUID, Integer> usageByQuestion(UUID sessionId) {
