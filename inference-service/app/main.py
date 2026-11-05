@@ -247,6 +247,7 @@ async def stt_stream(websocket: WebSocket, language: str = "vi", session_id: str
     stt_mode = "streaming_only"
     configured = False
     audio_samples = 0
+    session_audio_pcm = bytearray()
     processed_samples = 0
     seq = 0
     partial_revisions = 0
@@ -420,6 +421,13 @@ async def stt_stream(websocket: WebSocket, language: str = "vi", session_id: str
                         pending_pcm = np.empty(0, dtype=np.int16)
                     if active_chunks:
                         await finish_segment(processed_samples, "end")
+                    elif not committed and session_audio_pcm:
+                        # VAD can miss quiet speech; let the final decoder and its own VAD/no-speech filters decide.
+                        audio = np.frombuffer(session_audio_pcm, dtype="<i2").astype(np.float32) / 32768.0
+                        active_chunks = [audio]
+                        active_start_sample = 0
+                        active = True
+                        await finish_segment(audio_samples, "end_without_vad_segment")
                     await safe_send({"type": "closed", "request_id": request_id})
                     await websocket.close(code=1000)
                     LOGGER.info("stt session closed request_id=%s duration_ms=%s committed=%s partial_revisions=%s",
@@ -441,6 +449,7 @@ async def stt_stream(websocket: WebSocket, language: str = "vi", session_id: str
             if audio_samples > settings.stt_max_audio_s * SAMPLE_RATE:
                 await send_error(websocket, "SESSION_TIMEOUT", "Audio duration exceeded the configured limit.", False)
                 break
+            session_audio_pcm.extend(data)
             pending_pcm = np.concatenate((pending_pcm, samples))
             while pending_pcm.size >= 512:
                 frame = pending_pcm[:512]

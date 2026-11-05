@@ -38,6 +38,14 @@ class ContinuousSpeechVad:
         self.frame = 0
 
 
+class NoSpeechStartVad:
+    def __call__(self, frame):
+        return None
+
+    def reset_states(self):
+        return None
+
+
 class FakeEngine:
     def __init__(self):
         self.stt_status = EngineStatus(ready=False, engine="faster-whisper", model="missing", device="cpu", reason="model_files_missing")
@@ -168,3 +176,23 @@ def test_empty_filtered_final_reports_recoverable_error(monkeypatch):
         error = websocket.receive_json()
         assert error["type"] == "error"
         assert error["code"] == "TRANSCRIPT_UNRELIABLE"
+
+
+def test_end_runs_final_decode_when_streaming_vad_missed_the_start(monkeypatch):
+    client = configure(monkeypatch)
+    monkeypatch.setattr(main.engine, "stt_status", EngineStatus(ready=True, engine="test", model="test", device="cpu", reason=""))
+    monkeypatch.setattr(main.engine, "new_vad_iterator", lambda: NoSpeechStartVad())
+    with client.websocket_connect(
+        "/v1/stt/stream?language=vi",
+        headers={"X-Internal-Token": "test-local-token"},
+    ) as websocket:
+        assert websocket.receive_json()["type"] == "ready"
+        websocket.send_json({"type": "config", "mode": "streaming_only"})
+        for _ in range(4):
+            websocket.send_bytes(np.zeros(512, dtype="<i2").tobytes())
+        websocket.send_json({"type": "end"})
+        committed = websocket.receive_json()
+        closed = websocket.receive_json()
+        assert committed["type"] == "committed"
+        assert committed["text"] == "xin chao"
+        assert closed["type"] == "closed"
