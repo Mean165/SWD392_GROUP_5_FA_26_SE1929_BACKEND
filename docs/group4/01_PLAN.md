@@ -20,7 +20,7 @@
 ## Milestones
 
 1. G0 survey/plan completed before code.
-2. G1 additive SQL/schema, immutable audit/revision primitives and state machine tests.
+2. G1 additive SQL/schema, immutable audit/revision primitives and state machine tests. Implemented in the current worktree; migration is idempotent and loaded after `schema.sql` by Spring SQL init.
 3. G2 completed-attempt reconciliation, durable submissions, queue filters/page, ownership/assignment checks, capabilities endpoint.
 4. G3 local LLM provider boundary, validated structured AI run, evidence verification, K-sample aggregation and retry/recovery.
 5. G4 lecturer claim/lease, draft scores/comments, accept/override/manual operations, finalize/reopen/revision, release policy.
