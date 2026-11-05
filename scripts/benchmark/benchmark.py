@@ -164,6 +164,7 @@ def benchmark_tts(models_dir: Path, report_dir: Path) -> list[dict[str, object]]
     import io
     import wave
     from piper import PiperVoice
+    from korvatts import TTS as KorvaTTS
 
     cases = [
         ("vi_numbers", "vi", "Kỳ thi diễn ra vào ngày 2026-11-15, có 12 câu hỏi."),
@@ -171,43 +172,58 @@ def benchmark_tts(models_dir: Path, report_dir: Path) -> list[dict[str, object]]
         ("en_numbers", "en", "The oral exam has 12 questions and lasts 30 minutes."),
         ("en_terms", "en", "Explain REST API, SQL, CPU and object oriented programming."),
     ]
-    voice_paths = {
-        "vi": models_dir / "tts" / "vi_VN-vais1000-medium.onnx",
-        "en": models_dir / "tts" / "en_US-lessac-medium.onnx",
-    }
-    missing = [language for language, path in voice_paths.items() if not path.is_file()]
+    korva_assets = models_dir / "tts" / "korvatts"
+    english_voice_path = models_dir / "tts" / "en_US-lessac-medium.onnx"
+    missing = []
+    if not (korva_assets / "onnx" / "vocoder.onnx").is_file(): missing.append("vi:korvatts-assets")
+    if not (korva_assets / "voice_styles" / "khanh_vy.json").is_file(): missing.append("vi:khanh_vy")
+    if not english_voice_path.is_file(): missing.append("en:lessac")
     if missing:
         return [{"case": "piper_load", "status": "voice_model_missing", "missing_languages": ",".join(missing)}]
-    voices = {language: PiperVoice.load(path) for language, path in voice_paths.items()}
+    korva = KorvaTTS(assets_dir=korva_assets, device="cpu", auto_download=False, num_threads=4)
+    english_voice = PiperVoice.load(english_voice_path)
     outputs: list[dict[str, object]] = []
     sample_dir = report_dir / "tts_samples"
     sample_dir.mkdir(parents=True, exist_ok=True)
     for case_id, language, text in cases:
-        voice = voices[language]
         started = time.perf_counter()
-        chunks = iter(voice.synthesize(text))
-        try:
-            first = next(chunks)
-        except StopIteration:
-            outputs.append({"case": case_id, "status": "empty_audio"})
-            continue
-        first_byte_ms = (time.perf_counter() - started) * 1000
         output = io.BytesIO()
-        duration_ms = 0
-        with wave.open(output, "wb") as wav_file:
-            wav_file.setnchannels(first.sample_channels)
-            wav_file.setsampwidth(first.sample_width)
-            wav_file.setframerate(first.sample_rate)
-            for chunk in chain((first,), chunks):
-                wav_file.writeframes(chunk.audio_int16_bytes)
-                duration_ms += round(len(chunk.audio_int16_bytes) * 1000 /
-                                     (chunk.sample_rate * chunk.sample_channels * chunk.sample_width))
+        if language == "vi":
+            wav, duration_seconds = korva.synthesize(text, voice="khanh_vy", lang="vi", total_steps=32, speed=1.0)
+            pcm = np.clip(wav, -1.0, 1.0)
+            pcm = (pcm * 32767.0).astype("<i2", copy=False)
+            with wave.open(output, "wb") as wav_file:
+                wav_file.setnchannels(1); wav_file.setsampwidth(2); wav_file.setframerate(korva.sample_rate)
+                wav_file.writeframes(pcm.tobytes())
+            duration_ms = round(duration_seconds * 1000)
+            first_byte_ms = (time.perf_counter() - started) * 1000
+            voice_name = "khanh_vy"
+        else:
+            chunks = iter(english_voice.synthesize(text))
+            try:
+                first = next(chunks)
+            except StopIteration:
+                outputs.append({"case": case_id, "status": "empty_audio"})
+                continue
+            first_byte_ms = (time.perf_counter() - started) * 1000
+            duration_ms = 0
+            with wave.open(output, "wb") as wav_file:
+                wav_file.setnchannels(first.sample_channels)
+                wav_file.setsampwidth(first.sample_width)
+                wav_file.setframerate(first.sample_rate)
+                for chunk in chain((first,), chunks):
+                    wav_file.writeframes(chunk.audio_int16_bytes)
+                    duration_ms += round(len(chunk.audio_int16_bytes) * 1000 /
+                                         (chunk.sample_rate * chunk.sample_channels * chunk.sample_width))
+            voice_name = english_voice_path.name
         audio = output.getvalue()
         total_ms = (time.perf_counter() - started) * 1000
         sample_path = sample_dir / f"{case_id}.wav"
         sample_path.write_bytes(audio)
-        outputs.append({"case": case_id, "language": language, "engine": "piper",
-                        "voice": voice_paths[language].name, "first_chunk_ms": round(first_byte_ms, 2),
+        outputs.append({"case": case_id, "language": language,
+                        "engine": "korvatts" if language == "vi" else "piper",
+                        "voice": voice_name, "first_audio_ms": round(first_byte_ms, 2),
+                        "output_mode": "full_utterance" if language == "vi" else "first_chunk",
                         "total_ms": round(total_ms, 2), "duration_ms": duration_ms,
                         "rtf": round(total_ms / max(1, duration_ms), 3), "audio_bytes": len(audio),
                         "sample_path": sample_path.as_posix(), "status": "ran_on_local_voice"})
@@ -274,12 +290,12 @@ def main() -> None:
             writer.writeheader()
             writer.writerows(tts_rows)
         if args.tts_only:
-            lines = [f"# Local Piper TTS Smoke Benchmark {time.strftime('%Y%m%d')}", "",
+            lines = [f"# Local TTS Smoke Benchmark {time.strftime('%Y%m%d')}", "",
                      "These model timings use fixed synthetic text; listening quality is not assessed.", "",
-                     "| Case | Language | Voice | First chunk ms | Total ms | Audio ms | RTF | Status |",
-                     "|---|---|---|---:|---:|---:|---:|---|"]
+                     "| Case | Language | Engine | Voice | First audio ms | Output mode | Total ms | Audio ms | RTF | Status |",
+                     "|---|---|---|---|---:|---|---:|---:|---:|---|"]
             for row in tts_rows:
-                lines.append(f"| {row.get('case')} | {row.get('language')} | {row.get('voice')} | {row.get('first_chunk_ms')} | {row.get('total_ms')} | {row.get('duration_ms')} | {row.get('rtf')} | {row.get('status')} |")
+                lines.append(f"| {row.get('case')} | {row.get('language')} | {row.get('engine')} | {row.get('voice')} | {row.get('first_audio_ms')} | {row.get('output_mode')} | {row.get('total_ms')} | {row.get('duration_ms')} | {row.get('rtf')} | {row.get('status')} |")
             tts_report = args.report_dir / f"tts_benchmark_{time.strftime('%Y%m%d')}.md"
             tts_report.write_text("\n".join(lines) + "\n", encoding="utf-8")
             print(f"Wrote {tts_csv}, {tts_report}, and synthetic WAV samples")

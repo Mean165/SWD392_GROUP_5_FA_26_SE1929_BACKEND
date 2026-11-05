@@ -21,8 +21,8 @@ public class TextToSpeechProperties {
     public Local getLocal() { return local; }
 
     public static class Local {
-        private String engine = "piper";
-        private String voiceVi = "vi_VN-vais1000-medium";
+        private String engine = "korva";
+        private String voiceVi = "khanh_vy";
         private String voiceEn = "en_US-lessac-medium";
         private double speed = 1.0;
         private String cacheDirectory = "/models/tts-cache";

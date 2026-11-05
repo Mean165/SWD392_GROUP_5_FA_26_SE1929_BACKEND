@@ -96,6 +96,13 @@ class Transcript:
         }
 
 
+@dataclass
+class PcmChunk:
+    sample_rate: int
+    sample_channels: int
+    audio_int16_bytes: bytes
+
+
 class SpeechEngine:
     def __init__(self, settings: Settings):
         self.settings = settings
@@ -104,6 +111,7 @@ class SpeechEngine:
         self.whisper = None
         self.vad_model = None
         self.tts_voices: dict[str, Any] = {}
+        self.korva_tts = None
         self.normalizer = SpeechTextNormalizer(settings.tts_lexicon_path)
         self._model_lock = threading.RLock()
         self._stt_slots = threading.BoundedSemaphore(settings.stt_max_concurrent)
@@ -230,39 +238,74 @@ class SpeechEngine:
 
     def _load_tts(self) -> None:
         started = time.perf_counter()
-        if self.settings.tts_engine != "piper":
+        if self.settings.tts_engine not in {"piper", "korva"}:
             self.tts_status = EngineStatus(ready=False, engine=self.settings.tts_engine, reason="unsupported_tts_engine")
             return
-        missing = [path.name for path in (self.settings.tts_voice_vi, self.settings.tts_voice_en) if not path.is_file()]
+        required_voices = (self.settings.tts_voice_vi, self.settings.tts_voice_en) \
+            if self.settings.tts_engine == "piper" else (self.settings.tts_voice_en,)
+        missing = [path.name for path in required_voices if not path.is_file()]
+        if self.settings.tts_engine == "korva":
+            required_korva_files = (
+                self.settings.tts_korva_assets_dir / "onnx" / "vocoder.onnx",
+                self.settings.tts_korva_assets_dir / "onnx" / "vector_estimator.onnx",
+                self.settings.tts_korva_assets_dir / "voice_styles" / f"{self.settings.tts_korva_voice}.json",
+            )
+            missing.extend(path.name for path in required_korva_files if not path.is_file())
         if missing:
-            self.tts_status = EngineStatus(ready=False, engine="piper", reason="voice_models_missing:" + ",".join(missing))
+            self.tts_status = EngineStatus(ready=False, engine=self.settings.tts_engine,
+                                           reason="voice_models_missing:" + ",".join(missing))
             LOGGER.warning("TTS voices not ready: missing_count=%s", len(missing))
             return
         try:
             from piper import PiperVoice
             from piper.config import SynthesisConfig
 
-            self.tts_voices = {
-                "vi": PiperVoice.load(str(self.settings.tts_voice_vi), use_cuda=self.settings.tts_use_cuda),
-                "en": PiperVoice.load(str(self.settings.tts_voice_en), use_cuda=self.settings.tts_use_cuda),
-            }
+            korva_revision = ""
+            self.tts_voices = {"en": PiperVoice.load(str(self.settings.tts_voice_en), use_cuda=self.settings.tts_use_cuda)}
+            if self.settings.tts_engine == "piper":
+                self.tts_voices["vi"] = PiperVoice.load(str(self.settings.tts_voice_vi), use_cuda=self.settings.tts_use_cuda)
+            else:
+                from korvatts import TTS as KorvaTTS
+
+                manifest_path = self.settings.tts_korva_assets_dir / "model-manifest.json"
+                if not manifest_path.is_file():
+                    raise FileNotFoundError("korva_model_manifest_missing")
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                korva_revision = str(manifest.get("revision", ""))
+                if not korva_revision:
+                    raise ValueError("korva_model_revision_missing")
+                self.korva_tts = KorvaTTS(assets_dir=self.settings.tts_korva_assets_dir,
+                                          device="cpu", auto_download=False,
+                                          num_threads=self.settings.tts_cpu_threads)
+                if self.settings.tts_korva_voice not in self.korva_tts.list_voices():
+                    raise ValueError("configured_korva_voice_missing")
             self.settings.tts_cache_dir.mkdir(parents=True, exist_ok=True)
             warmup = SynthesisConfig(length_scale=1.0, normalize_audio=False)
-            list(self.tts_voices["vi"].synthesize("Xin chào.", syn_config=warmup))
+            if self.settings.tts_engine == "piper":
+                list(self.tts_voices["vi"].synthesize("Xin chào.", syn_config=warmup))
+            else:
+                self.korva_tts.synthesize("Xin chào.", voice=self.settings.tts_korva_voice,
+                                          lang="vi", total_steps=self.settings.tts_korva_steps,
+                                          speed=self.settings.tts_speed)
             list(self.tts_voices["en"].synthesize("Hello.", syn_config=warmup))
+            voice_description = (self.settings.tts_korva_voice + "@" + korva_revision + "+" + self.settings.tts_voice_en.name
+                                 if self.settings.tts_engine == "korva"
+                                 else self.settings.tts_voice_vi.name + "+" + self.settings.tts_voice_en.name)
             self.tts_status = EngineStatus(
                 ready=True,
-                engine="piper",
-                model=f"{self.settings.tts_voice_vi.name}+{self.settings.tts_voice_en.name}",
-                device="cuda" if self.settings.tts_use_cuda else "cpu",
-                compute_type="onnxruntime-gpu" if self.settings.tts_use_cuda else "onnxruntime-cpu",
+                engine="korvatts (vi) + piper (en)" if self.settings.tts_engine == "korva" else "piper",
+                model=voice_description,
+                device="cpu" if self.settings.tts_engine == "korva" else ("cuda" if self.settings.tts_use_cuda else "cpu"),
+                compute_type="onnxruntime-cpu + piper" if self.settings.tts_engine == "korva"
+                    else ("onnxruntime-gpu" if self.settings.tts_use_cuda else "onnxruntime-cpu"),
                 loaded_at=datetime.now(timezone.utc).isoformat(),
                 load_ms=round((time.perf_counter() - started) * 1000),
                 reason="",
             )
-            LOGGER.info("TTS voices ready: engine=piper load_ms=%s", self.tts_status.load_ms)
+            LOGGER.info("TTS ready: engine=%s load_ms=%s", self.tts_status.engine, self.tts_status.load_ms)
         except Exception as exc:
-            self.tts_status = EngineStatus(ready=False, engine="piper", reason="voice_load_failed:" + type(exc).__name__)
+            self.tts_status = EngineStatus(ready=False, engine=self.settings.tts_engine,
+                                           reason="voice_load_failed:" + type(exc).__name__)
             LOGGER.warning("TTS not ready: exception_class=%s", type(exc).__name__)
 
     def resource_snapshot(self) -> dict[str, int | float | None]:
@@ -393,9 +436,14 @@ class SpeechEngine:
         if not math.isfinite(speed) or not 0.25 <= speed <= 4.0:
             raise ValueError("tts_speed_out_of_range")
         language = "vi" if language.lower().startswith("vi") else "en"
+        if language == "vi" and self.settings.tts_engine == "korva" and not 0.5 <= speed <= 2.0:
+            raise ValueError("tts_speed_out_of_range")
         normalized = self.normalizer.normalize(text, language, enabled=normalize)
-        voice = self.tts_voices[language]
-        key = hashlib.sha256("\0".join((normalized, str(voice), str(speed), str(normalize), self.tts_status.model)).encode("utf-8")).hexdigest()
+        if language == "vi" and self.settings.tts_engine == "korva":
+            voice_name = self.settings.tts_korva_voice
+        else:
+            voice_name = str(self.settings.tts_voice_vi if language == "vi" else self.settings.tts_voice_en)
+        key = hashlib.sha256("\0".join((normalized, voice_name, str(speed), str(normalize), self.tts_status.model)).encode("utf-8")).hexdigest()
         with self._tts_cache_lock:
             cached = self._tts_cache.get(key)
             if cached is not None:
@@ -409,16 +457,22 @@ class SpeechEngine:
                     return cached, _wav_duration_ms(cached), normalized
             except OSError:
                 pass
-        from piper.config import SynthesisConfig
+        if language == "vi" and self.settings.tts_engine == "korva":
+            wav, _ = self.korva_tts.synthesize(normalized, voice=self.settings.tts_korva_voice,
+                                               lang="vi", total_steps=self.settings.tts_korva_steps,
+                                               speed=speed)
+            audio = _float_audio_to_wav(wav, self.korva_tts.sample_rate)
+        else:
+            from piper.config import SynthesisConfig
 
-        output = io.BytesIO()
-        with wave.open(output, "wb") as wav_file:
-            voice.synthesize_wav(
-                normalized,
-                wav_file,
-                syn_config=SynthesisConfig(length_scale=1.0 / speed, normalize_audio=False),
-            )
-        audio = output.getvalue()
+            output = io.BytesIO()
+            with wave.open(output, "wb") as wav_file:
+                self.tts_voices[language].synthesize_wav(
+                    normalized,
+                    wav_file,
+                    syn_config=SynthesisConfig(length_scale=1.0 / speed, normalize_audio=False),
+                )
+            audio = output.getvalue()
         self._cache_tts(key, audio)
         try:
             temporary = self.settings.tts_cache_dir / f"{key}.wav.tmp"
@@ -437,6 +491,19 @@ class SpeechEngine:
             raise ValueError("tts_speed_out_of_range")
         language = "vi" if language.lower().startswith("vi") else "en"
         normalized = self.normalizer.normalize(text, language, enabled=normalize)
+        if language == "vi" and self.settings.tts_engine == "korva":
+            if not 0.5 <= speed <= 2.0:
+                raise ValueError("tts_speed_out_of_range")
+            wav, _ = self.korva_tts.synthesize(normalized, voice=self.settings.tts_korva_voice,
+                                               lang="vi", total_steps=self.settings.tts_korva_steps,
+                                               speed=speed)
+            pcm = np.clip(wav, -1.0, 1.0)
+            pcm = (pcm * 32767.0).astype("<i2", copy=False)
+            chunk_samples = max(1, self.korva_tts.sample_rate // 20)
+            for start in range(0, pcm.size, chunk_samples):
+                yield PcmChunk(self.korva_tts.sample_rate, 1,
+                               pcm[start:start + chunk_samples].tobytes())
+            return
         from piper.config import SynthesisConfig
 
         voice = self.tts_voices[language]
@@ -499,3 +566,15 @@ def _wav_duration_ms(audio: bytes) -> int:
             return round(wav_file.getnframes() * 1000 / wav_file.getframerate())
     except (wave.Error, ZeroDivisionError):
         return 0
+
+
+def _float_audio_to_wav(audio: np.ndarray, sample_rate: int) -> bytes:
+    samples = np.asarray(audio, dtype=np.float32).reshape(-1)
+    pcm = (np.clip(samples, -1.0, 1.0) * 32767.0).astype("<i2", copy=False)
+    output = io.BytesIO()
+    with wave.open(output, "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(pcm.tobytes())
+    return output.getvalue()

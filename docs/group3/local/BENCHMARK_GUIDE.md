@@ -32,7 +32,7 @@ The current harness compares installed large-v3-turbo and base models with and w
 docker compose --profile gpu run --rm --no-deps inference-gpu python /benchmarks/benchmark.py --tts-only --models-dir /models --report-dir /models/reports
 ```
 
-The `--tts-only` mode runs without an STT corpus. It writes a WAV per fixed Vietnamese/English sample beneath ignored `reports/tts_samples/`, recording first generated chunk latency, total synthesis latency, audio duration, and RTF. Add `--tts` to the real STT command to run both suites. Human scoring fields (clarity, naturalness, terminology, pauses) must be completed by listeners; the harness does not invent subjective ratings.
+The `--tts-only` mode runs without an STT corpus. It writes a WAV per fixed Vietnamese/English sample beneath ignored `reports/tts_samples/`, recording first audio latency, total synthesis latency, audio duration, RTF, and output mode. Korva currently synthesizes a full Vietnamese utterance before returning audio, while Piper English exposes chunks. Add `--tts` to the real STT command to run both suites. Human scoring fields (clarity, naturalness, terminology, pauses) must be completed by listeners; the harness does not invent subjective ratings.
 
 ## End-to-end latency
 

@@ -8,3 +8,4 @@ ctranslate2==4.8.5
 silero-vad==6.2.3
 piper-tts==1.8.0
 num2words==0.5.14
+korvatts==0.1.3

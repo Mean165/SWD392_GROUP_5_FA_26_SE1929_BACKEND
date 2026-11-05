@@ -22,10 +22,10 @@ class LocalInferenceRuntimeSmokeTest {
         LocalInferenceClient client = new LocalInferenceClient(properties, new ObjectMapper());
         assertTrue(client.health().path("tts").path("ready").asBoolean(), "Local Piper health must be ready.");
 
-        byte[] shortVietnamese = client.synthesize("Xin chào.", "vi", "vi_VN-vais1000-medium", 1.0, "wav");
+        byte[] shortVietnamese = client.synthesize("Xin chào.", "vi", "khanh_vy", 1.0, "wav");
         byte[] vietnamese = client.synthesize(
                 "Xin chào, đây là kiểm tra âm thanh. Nếu bạn nghe rõ giọng nói này, loa của bạn hoạt động tốt.",
-                "vi", "vi_VN-vais1000-medium", 1.0, "wav");
+                "vi", "khanh_vy", 1.0, "wav");
         byte[] english = client.synthesize(
                 "Hello, this is an audio check. If you can hear this voice clearly, your speakers are working.",
                 "en", "en_US-lessac-medium", 1.0, "wav");

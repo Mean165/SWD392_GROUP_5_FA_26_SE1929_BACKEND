@@ -21,8 +21,8 @@ The browser communicates only with Spring Boot. It must not call the private inf
   "tts": {
     "ready": true,
     "provider": "local",
-    "engine": "piper",
-    "model": "vi_VN-vais1000-medium.onnx+en_US-lessac-medium.onnx",
+    "engine": "korvatts (vi) + piper (en)",
+    "model": "khanh_vy@e5c8c218e93c1d8daa53bfe0e62b8fbc5a5e991d+en_US-lessac-medium.onnx",
     "device": "cpu",
     "reason": "",
     "languages": ["vi-VN", "en-US"]
@@ -45,7 +45,7 @@ Example values above are illustrative; use the actual response. The FE may begin
 
 ## Device Check Speaker
 
-`GET /api/student/device-check/tts?language=vi|en` uses the regular JWT and returns a playable WAV response when local Piper is ready. The browser should report TTS failures as a speaker-step issue and allow the optional device check to be skipped, consistent with the existing page flow.
+`GET /api/student/device-check/tts?language=vi|en` uses the regular JWT and returns a playable WAV response when local TTS is ready. Vietnamese defaults to KorvaTTS; English defaults to Piper. The browser should report TTS failures as a speaker-step issue and allow the optional device check to be skipped, consistent with the existing page flow.
 
 ## Exam STT
 

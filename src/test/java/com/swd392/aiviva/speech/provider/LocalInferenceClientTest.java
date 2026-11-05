@@ -57,7 +57,7 @@ class LocalInferenceClientTest {
             exchange.getResponseHeaders().add("X-Sample-Rate", "22050");
             exchange.getResponseHeaders().add("X-Channels", "1");
             byte[] pcm = {0, 0, 1, 0};
-            String audio = "{\"type\":\"audio\",\"audio_base64\":\""
+            String audio = "{\"type\":\"audio\",\"sample_rate\":44100,\"channels\":1,\"audio_base64\":\""
                     + Base64.getEncoder().encodeToString(pcm) + "\"}\n";
             byte[] events = (audio + "{\"type\":\"done\",\"duration_ms\":1}\n").getBytes(StandardCharsets.UTF_8);
             respond(exchange, 200, "application/x-ndjson", events);
@@ -89,7 +89,7 @@ class LocalInferenceClientTest {
         var info = client.streamSynthesis("hello", "vi", "sample voice", 1.0, chunks::add);
 
         assertEquals("audio/wav", info.contentType());
-        assertEquals(22_050, info.sampleRate());
+        assertEquals(44_100, info.sampleRate());
         assertEquals(1, info.channels());
         assertEquals(1, info.durationMillis());
         assertEquals(1, chunks.size());

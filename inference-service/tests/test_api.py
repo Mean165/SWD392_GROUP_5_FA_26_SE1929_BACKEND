@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from app import main
-from app.engine import EngineStatus, SpeechEngine, Transcript
+from app.engine import EngineStatus, SpeechEngine, Transcript, _float_audio_to_wav
 
 
 class SilenceVad:
@@ -204,3 +204,15 @@ def test_filters_vietnamese_subscription_hallucination():
     assert engine._is_hallucination(
         "Hãy subscribe cho kênh La La School để không bỏ lỡ những video hấp dẫn"
     )
+
+
+def test_korva_float_wave_is_mono_pcm16_at_44100_hz():
+    import io
+    import wave
+
+    wav_bytes = _float_audio_to_wav(np.array([-1.0, 0.0, 1.0], dtype=np.float32), 44_100)
+    with wave.open(io.BytesIO(wav_bytes), "rb") as audio:
+        assert audio.getframerate() == 44_100
+        assert audio.getnchannels() == 1
+        assert audio.getsampwidth() == 2
+        assert audio.getnframes() == 3

@@ -70,7 +70,8 @@ public class LocalTextToSpeechProvider implements TTSProvider {
 
     @Override
     public TTSStreamInfo streamFormat() {
-        return new TTSStreamInfo("audio/wav", "pcm_s16le", 22_050, 1, 0);
+        int sampleRate = "korva".equalsIgnoreCase(properties.getLocal().getEngine()) ? 44_100 : 22_050;
+        return new TTSStreamInfo("audio/wav", "wav", sampleRate, 1, 0);
     }
 
     @Override

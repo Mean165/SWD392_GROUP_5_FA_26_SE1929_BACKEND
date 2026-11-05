@@ -50,9 +50,13 @@ Start from `.env.example`. No STT/TTS provider API key is used.
 | `LOCAL_STT_LOGPROB_THRESHOLD` / `LOCAL_STT_COMPRESSION_RATIO_THRESHOLD` | `-1.0` / `2.4` | Suspicious segment guards |
 | `LOCAL_STT_REPEAT_LIMIT` | `4` | Repetition-loop phrase filter threshold |
 | `LOCAL_STT_HALLUCINATION_PHRASES` | sample English/Vietnamese phrases | Comma-separated phrase deny list; tune with evaluation corpus |
-| `LOCAL_TTS_ENGINE` | `piper` | Local engine selector |
-| `LOCAL_TTS_VOICE_VI` / `LOCAL_TTS_VOICE_EN` | vais1000 / lessac | Installed `.onnx` voice paths |
-| `LOCAL_TTS_DEVICE` / `LOCAL_TTS_USE_CUDA` | `cpu` / `false` | Piper execution device; GPU requires `onnxruntime-gpu` and is opt-in |
+| `LOCAL_TTS_ENGINE` | `korva` | Vietnamese-first KorvaTTS plus Piper English; set `piper` to use both Piper voices |
+| `LOCAL_TTS_VOICE_VI` / `LOCAL_TTS_VOICE_EN` | `khanh_vy` / `en_US-lessac-medium` | Voice IDs used by Spring request/cache metadata |
+| `LOCAL_TTS_KORVA_ASSETS_DIR` | `/models/tts/korvatts` | Pinned local ONNX and voice style assets; service never downloads assets at startup |
+| `LOCAL_TTS_KORVA_VOICE` / `LOCAL_TTS_KORVA_STEPS` | `khanh_vy` / `32` | Korva Vietnamese speaker and quality steps (1-32) |
+| `LOCAL_TTS_PIPER_VOICE_VI` / `LOCAL_TTS_PIPER_VOICE_EN` | vais1000 / lessac `.onnx` paths | Piper voices used when `LOCAL_TTS_ENGINE=piper`; English also backs Korva mode |
+| `LOCAL_TTS_CPU_THREADS` | `4` | CPU threads for Korva ONNX sessions |
+| `LOCAL_TTS_DEVICE` / `LOCAL_TTS_USE_CUDA` | `cpu` / `false` | Piper execution device; Korva currently uses ONNX CPU |
 | `LOCAL_TTS_SPEED` | `1.0` | Fixed exam voice rate |
 | `LOCAL_TTS_NORMALIZE` | `true` | Single service-side normalization switch |
 | `LOCAL_TTS_PRONUNCIATION_LEXICON` | `/srv/inference/data/pronunciation_lexicon.json` | Course acronym pronunciation map |

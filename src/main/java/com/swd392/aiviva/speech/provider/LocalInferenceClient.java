@@ -118,6 +118,8 @@ public class LocalInferenceClient {
                 while ((line = reader.readLine()) != null) {
                     JsonNode event = objectMapper.readTree(line);
                     if ("audio".equals(event.path("type").asText())) {
+                        sampleRate = parseEventHeader(event, "sample_rate", sampleRate);
+                        channels = parseEventHeader(event, "channels", channels);
                         String encoded = event.path("audio_base64").asText("");
                         if (!encoded.isBlank()) pcm.writeBytes(Base64.getDecoder().decode(encoded));
                     } else if ("error".equals(event.path("type").asText())) {
@@ -271,6 +273,10 @@ public class LocalInferenceClient {
     private long parseHeader(HttpResponse<?> response, String name, long fallback) {
         try { return Long.parseLong(response.headers().firstValue(name).orElse(Long.toString(fallback))); }
         catch (NumberFormatException ignored) { return fallback; }
+    }
+
+    private int parseEventHeader(JsonNode event, String name, int fallback) {
+        return event.path(name).canConvertToInt() ? event.path(name).asInt() : fallback;
     }
 
     private byte[] pcmToWav(byte[] pcm, int sampleRate, int channels) {

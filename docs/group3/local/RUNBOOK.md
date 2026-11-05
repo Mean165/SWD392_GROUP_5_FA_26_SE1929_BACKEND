@@ -7,18 +7,18 @@ Prerequisites observed on the development host: Windows 11 x64, Docker Desktop w
 From PowerShell in the backend repo:
 
 ```powershell
-.scripts\setup-inference.ps1 -Profile gpu
+.\scripts\setup-inference.ps1 -Profile gpu
 .scripts\download-models.ps1 -Preset all
 ```
 
-Downloads are revision-pinned. Primary STT source is Whisper large-v3-turbo converted to CTranslate2 int8_float16 under `models/stt/large-v3-turbo-ct2`; fallback is the pinned CTranslate2 base/int8 model under `models/stt/base`; Piper voices are the Vietnamese `vais1000-medium` and English `lessac-medium` files. Downloaded model/voice manifests include revision and SHA-256. The scripts check disk before writing. They do not check in weights.
+Downloads are revision-pinned. Primary STT source is Whisper large-v3-turbo converted to CTranslate2 int8_float16 under `models/stt/large-v3-turbo-ct2`; fallback is the pinned CTranslate2 base/int8 model under `models/stt/base`. Default Vietnamese TTS is KorvaTTS `khanh_vy` from Apache-2.0 assets under `models/tts/korvatts`; English TTS uses Piper Lessac. Piper VAIS Vietnamese remains available with `LOCAL_TTS_ENGINE=piper` as a fallback. Downloaded model/voice manifests include revision and SHA-256. The scripts check disk before writing. They do not check in weights.
 
-The first setup requires Internet to download package wheels and model/voice files. After the model files are present, inference performs no external speech requests. The default large-model conversion may use most of the current 6 GiB free disk (source checkpoint, converted model, base fallback and voices). Preserve a further disk safety margin; if the preflight stops, run the base/voices presets first and free disk before the large model.
+The first setup requires Internet to download package wheels and model/voice files. After the model files are present, inference performs no external speech requests. The large-model conversion and Korva assets require temporary and persistent disk space; keep a margin and follow the preset-specific disk preflight.
 
 ## Run AiViva
 
 ```powershell
-.scripts\dev-up.ps1 -Profile gpu
+.\scripts\dev-up.ps1 -Profile gpu
 docker compose ps
 docker compose logs --tail=80 backend
 ```
@@ -26,7 +26,7 @@ docker compose logs --tail=80 backend
 CPU fallback:
 
 ```powershell
-.scripts\dev-up.ps1 -Profile cpu
+.\scripts\dev-up.ps1 -Profile cpu
 ```
 
 Inference binds to loopback in the backend's shared container network namespace; Compose does not publish port 8000. The backend and inference service use the same random `LOCAL_INFERENCE_TOKEN` stored only in ignored `.env`; it is never returned to FE. The setup script removes old speech-provider key lines by variable name without printing their values. It does not alter LLM/database/mail settings.
@@ -66,7 +66,7 @@ Internal service endpoints and request/event schemas are in `INFERENCE_API.md` a
 | Health says internal auth not configured | Run `scripts/setup-inference.ps1`; it writes a random token to ignored `.env`, then recreate backend and inference services together. |
 | Health says inference unreachable | Run `scripts/dev-up.ps1 -Profile gpu` or `cpu`; backend and inference must be recreated together because inference shares the backend container's loopback namespace. Do not recreate backend alone and keep the old inference container. |
 | Audio is silent/poor | Check selected mic and FE meter, consent, 16 kHz PCM contract and language; then test with a consented known sample, not an unconsented recording. |
-| Disk is low | Keep only the chosen model and Piper voices; do not delete source/converted files while a conversion is active. Do not delete saved exam recordings manually without following retention policy. |
+| Disk is low | Keep only the chosen STT model and configured TTS voices; do not delete source/converted files while a conversion is active. Do not delete saved exam recordings manually without following retention policy. |
 | Windows/Python setup fails | Recommended serving path uses Docker Python 3.11, avoiding host Python 3.14 ML wheel compatibility. Use PowerShell scripts from repo root; paths with spaces are handled via volume arguments. |
 
 ## Security maintenance

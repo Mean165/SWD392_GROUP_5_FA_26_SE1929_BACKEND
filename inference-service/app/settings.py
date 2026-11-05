@@ -53,6 +53,10 @@ class Settings:
     stt_repeat_limit: int
     hallucination_phrases: tuple[str, ...]
     tts_engine: str
+    tts_korva_assets_dir: Path
+    tts_korva_voice: str
+    tts_korva_steps: int
+    tts_cpu_threads: int
     tts_voice_vi: Path
     tts_voice_en: Path
     tts_speed: float
@@ -69,6 +73,10 @@ class Settings:
         models = Path(os.getenv("MODELS_DIR", "/models")).resolve()
         fallback = os.getenv("LOCAL_STT_FALLBACK_MODEL", "").strip()
         lexicon = os.getenv("LOCAL_TTS_PRONUNCIATION_LEXICON", "").strip()
+        tts_engine = os.getenv("LOCAL_TTS_ENGINE", "korva").lower()
+        korva_steps = _int("LOCAL_TTS_KORVA_STEPS", 32)
+        if tts_engine == "korva" and korva_steps > 32:
+            raise ValueError("LOCAL_TTS_KORVA_STEPS must be <= 32")
         bind_host = os.getenv("BIND_HOST", "127.0.0.1")
         if bind_host not in {"127.0.0.1", "::1"} and os.getenv("ALLOW_REMOTE_BIND", "false").lower() != "true":
             raise ValueError("BIND_HOST must be loopback unless ALLOW_REMOTE_BIND=true is explicitly set")
@@ -105,9 +113,13 @@ class Settings:
                 ).split(",")
                 if phrase.strip()
             ),
-            tts_engine=os.getenv("LOCAL_TTS_ENGINE", "piper").lower(),
-            tts_voice_vi=_voice_path(models, os.getenv("LOCAL_TTS_VOICE_VI", "vi_VN-vais1000-medium")),
-            tts_voice_en=_voice_path(models, os.getenv("LOCAL_TTS_VOICE_EN", "en_US-lessac-medium")),
+            tts_engine=tts_engine,
+            tts_korva_assets_dir=Path(os.getenv("LOCAL_TTS_KORVA_ASSETS_DIR", str(models / "tts" / "korvatts"))).resolve(),
+            tts_korva_voice=os.getenv("LOCAL_TTS_KORVA_VOICE", "khanh_vy"),
+            tts_korva_steps=korva_steps,
+            tts_cpu_threads=_int("LOCAL_TTS_CPU_THREADS", 4),
+            tts_voice_vi=_voice_path(models, os.getenv("LOCAL_TTS_PIPER_VOICE_VI", "vi_VN-vais1000-medium")),
+            tts_voice_en=_voice_path(models, os.getenv("LOCAL_TTS_PIPER_VOICE_EN", "en_US-lessac-medium")),
             tts_speed=_float("LOCAL_TTS_SPEED", 1.0, 0.25),
             tts_max_text_length=_int("LOCAL_TTS_MAX_TEXT_LENGTH", 4000),
             tts_cache_max_entries=_int("LOCAL_TTS_CACHE_MAX_ENTRIES", 256),

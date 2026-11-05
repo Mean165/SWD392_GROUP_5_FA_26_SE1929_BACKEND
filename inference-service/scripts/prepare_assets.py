@@ -9,7 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from huggingface_hub import hf_hub_download
+from huggingface_hub import hf_hub_download, snapshot_download
 
 
 ASSETS = {
@@ -23,6 +23,9 @@ ASSETS = {
 BASE_ID = "Systran/faster-whisper-base"
 BASE_REVISION = "ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66"
 PIPER_REVISION = "e7229f7d33a10e145e109b886d661984201ac3c4"
+KORVA_ID = "dogenthq/KorvaTTS"
+KORVA_REVISION = "e5c8c218e93c1d8daa53bfe0e62b8fbc5a5e991d"
+KORVA_VOICE = "khanh_vy"
 PIPER_FILES = {
     "vi/vi_VN/vais1000/medium": "vi_VN-vais1000-medium",
     "en/en_US/lessac/medium": "en_US-lessac-medium",
@@ -121,6 +124,30 @@ def prepare_voices(models_dir: Path, force: bool) -> None:
         print(f"Prepared Piper voice: {voice}")
 
 
+def prepare_korva(models_dir: Path, force: bool) -> None:
+    output = models_dir / "tts" / "korvatts"
+    required = [
+        output / "onnx" / filename
+        for filename in ("duration_predictor.onnx", "text_encoder.onnx", "vector_estimator.onnx",
+                         "vocoder.onnx", "tts.json", "unicode_indexer.json")
+    ] + [output / "voice_styles" / f"{KORVA_VOICE}.json"]
+    if not force and all(path.is_file() for path in required) and (output / "model-manifest.json").is_file():
+        print(f"KorvaTTS assets already prepared: {output}")
+        return
+    output.mkdir(parents=True, exist_ok=True)
+    snapshot_download(
+        repo_id=KORVA_ID,
+        revision=KORVA_REVISION,
+        allow_patterns=["onnx/*", f"voice_styles/{KORVA_VOICE}.json"],
+        local_dir=output,
+    )
+    missing = [str(path.relative_to(output)) for path in required if not path.is_file()]
+    if missing:
+        raise RuntimeError("KorvaTTS snapshot is missing required assets: " + ",".join(missing))
+    write_manifest(output, KORVA_ID, KORVA_REVISION, "Apache-2.0")
+    print(f"Prepared KorvaTTS Vietnamese voice {KORVA_VOICE} at revision {KORVA_REVISION}")
+
+
 def write_manifest(directory: Path, model: str, revision: str, license_text: str) -> None:
     files = {}
     for path in sorted(directory.rglob("*")):
@@ -133,7 +160,7 @@ def write_manifest(directory: Path, model: str, revision: str, license_text: str
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--models-dir", type=Path, default=Path(os.getenv("MODELS_DIR", "/models")))
-    parser.add_argument("--preset", choices=("large-v3-turbo", "base", "voices", "all"), default="all")
+    parser.add_argument("--preset", choices=("large-v3-turbo", "base", "voices", "korva", "all"), default="all")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
     models_dir = args.models_dir.resolve()
@@ -144,6 +171,8 @@ def main() -> None:
         prepare_whisper(models_dir, "base", args.force)
     if args.preset in {"voices", "all"}:
         prepare_voices(models_dir, args.force)
+    if args.preset in {"korva", "all"}:
+        prepare_korva(models_dir, args.force)
 
 
 if __name__ == "__main__":

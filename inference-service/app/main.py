@@ -189,6 +189,7 @@ async def stream_tts(body: SynthesizeRequest, _: str = Depends(require_token)) -
     validate_language(body.language)
     if body.format not in {"pcm_s16le", "wav"}:
         raise HTTPException(status_code=400, detail={"code": "INVALID_FORMAT", "message": "Stream format must be pcm_s16le or wav."})
+    output_sample_rate = 44_100 if body.language.lower().startswith("vi") and settings.tts_engine == "korva" else 22_050
 
     async def chunks():
         seq = 0
@@ -218,7 +219,7 @@ async def stream_tts(body: SynthesizeRequest, _: str = Depends(require_token)) -
             yield (json.dumps({"type": "error", "code": "LOCAL_TTS_FAILED", "message": "Local TTS stream failed."}) + "\n").encode("utf-8")
 
     return StreamingResponse(chunks(), media_type="application/x-ndjson",
-                             headers={"X-Audio-Encoding": "pcm_s16le", "X-Sample-Rate": "22050",
+                             headers={"X-Audio-Encoding": "pcm_s16le", "X-Sample-Rate": str(output_sample_rate),
                                       "X-Channels": "1", "Cache-Control": "no-store"})
 
 
@@ -500,7 +501,7 @@ async def send_error(websocket: WebSocket, code: str, message: str,
 def installed_versions() -> dict[str, str]:
     from importlib.metadata import PackageNotFoundError, version
 
-    names = ("faster-whisper", "ctranslate2", "silero-vad", "piper-tts", "torch", "fastapi", "uvicorn")
+    names = ("faster-whisper", "ctranslate2", "silero-vad", "piper-tts", "korvatts", "torch", "fastapi", "uvicorn")
     versions: dict[str, str] = {}
     for name in names:
         try:
