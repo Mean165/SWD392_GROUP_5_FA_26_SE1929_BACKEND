@@ -76,6 +76,7 @@ public class SecurityConfig {
                                 "/api/exams/**",
                                 "/api/evaluations/**"
                         ).hasAnyRole("AD", "LE")
+                        .requestMatchers("/api/v1/grading/**").hasAnyRole("AD", "LE")
                         .requestMatchers(
                                 HttpMethod.PUT,
                                 "/api/question-generation/**",

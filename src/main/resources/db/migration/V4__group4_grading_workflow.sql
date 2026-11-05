@@ -211,6 +211,20 @@ CREATE TABLE IF NOT EXISTS grading_exam_settings (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS grading_exam_audit_events (
+    event_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    exam_id UUID NOT NULL REFERENCES exam_session(session_id) ON DELETE RESTRICT,
+    seq BIGINT NOT NULL CHECK (seq > 0),
+    ts TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    actor_id UUID REFERENCES app_user(user_id) ON DELETE SET NULL,
+    actor_type VARCHAR(16) NOT NULL CHECK (actor_type IN ('LECTURER','ADMIN','SYSTEM')),
+    action VARCHAR(80) NOT NULL,
+    payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    prev_hash CHAR(64),
+    hash CHAR(64) NOT NULL,
+    CONSTRAINT uq_grading_exam_audit_seq UNIQUE(exam_id,seq)
+);
+
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_final_grade_requires_lecturer') THEN
         ALTER TABLE final_grade_report ADD CONSTRAINT ck_final_grade_requires_lecturer CHECK (
@@ -272,6 +286,53 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS trg_grading_snapshot_immutable ON grading_rubric_snapshots;
 CREATE TRIGGER trg_grading_snapshot_immutable BEFORE UPDATE OR DELETE ON grading_rubric_snapshots
     FOR EACH ROW EXECUTE FUNCTION reject_grading_snapshot_mutation();
+
+DROP TRIGGER IF EXISTS trg_grading_exam_audit_immutable ON grading_exam_audit_events;
+CREATE TRIGGER trg_grading_exam_audit_immutable BEFORE UPDATE OR DELETE ON grading_exam_audit_events
+    FOR EACH ROW EXECUTE FUNCTION reject_grading_audit_mutation();
+
+CREATE OR REPLACE FUNCTION reject_ai_output_mutation() RETURNS trigger AS $$
+BEGIN
+    RAISE EXCEPTION 'AI grading output is append-only' USING ERRCODE = '55000';
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS trg_ai_assessment_immutable ON ai_rubric_assessment;
+CREATE TRIGGER trg_ai_assessment_immutable BEFORE UPDATE OR DELETE ON ai_rubric_assessment
+    FOR EACH ROW WHEN (OLD.run_id IS NOT NULL) EXECUTE FUNCTION reject_ai_output_mutation();
+DROP TRIGGER IF EXISTS trg_ai_evidence_immutable ON ai_criterion_evidence;
+CREATE TRIGGER trg_ai_evidence_immutable BEFORE UPDATE OR DELETE ON ai_criterion_evidence
+    FOR EACH ROW EXECUTE FUNCTION reject_ai_output_mutation();
+DROP TRIGGER IF EXISTS trg_ai_feedback_immutable ON ai_question_feedback;
+CREATE TRIGGER trg_ai_feedback_immutable BEFORE UPDATE OR DELETE ON ai_question_feedback
+    FOR EACH ROW EXECUTE FUNCTION reject_ai_output_mutation();
+
+CREATE OR REPLACE FUNCTION guard_ai_run_metadata() RETURNS trigger AS $$
+BEGIN
+    IF NEW.submission_id IS DISTINCT FROM OLD.submission_id
+       OR NEW.run_no IS DISTINCT FROM OLD.run_no
+       OR NEW.trigger IS DISTINCT FROM OLD.trigger
+       OR NEW.requested_by IS DISTINCT FROM OLD.requested_by
+       OR NEW.provider IS DISTINCT FROM OLD.provider
+       OR NEW.model IS DISTINCT FROM OLD.model
+       OR NEW.prompt_version IS DISTINCT FROM OLD.prompt_version
+       OR NEW.temperature IS DISTINCT FROM OLD.temperature
+       OR NEW.seed IS DISTINCT FROM OLD.seed
+       OR NEW.k_samples IS DISTINCT FROM OLD.k_samples
+       OR NEW.input_hash IS DISTINCT FROM OLD.input_hash THEN
+        RAISE EXCEPTION 'AI grading run definition is immutable' USING ERRCODE = '55000';
+    END IF;
+    IF OLD.status='COMPLETED' AND NEW.status IS DISTINCT FROM OLD.status THEN
+        RAISE EXCEPTION 'Completed AI grading run is immutable' USING ERRCODE = '55000';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS trg_ai_run_metadata_immutable ON ai_grading_runs;
+CREATE TRIGGER trg_ai_run_metadata_immutable BEFORE UPDATE ON ai_grading_runs
+    FOR EACH ROW EXECUTE FUNCTION guard_ai_run_metadata();
+DROP TRIGGER IF EXISTS trg_ai_run_delete_immutable ON ai_grading_runs;
+CREATE TRIGGER trg_ai_run_delete_immutable BEFORE DELETE ON ai_grading_runs
+    FOR EACH ROW EXECUTE FUNCTION reject_ai_output_mutation();
 
 CREATE INDEX IF NOT EXISTS ix_grading_queue_exam_status_finished ON grading_submissions(exam_id,status,session_finished_at DESC);
 CREATE INDEX IF NOT EXISTS ix_grading_queue_lecturer_status_finished ON grading_submissions(assigned_lecturer_id,status,session_finished_at DESC);
