@@ -16,6 +16,8 @@ services:
       - pg_data:/var/lib/postgresql/data
       - ./src/main/resources/schema.sql:/docker-entrypoint-initdb.d/1-schema.sql
       - ./src/main/resources/data.sql:/docker-entrypoint-initdb.d/2-data.sql
+      - ./src/main/resources/db/migration/V4__group4_grading_workflow.sql:/docker-entrypoint-initdb.d/3-group4-grading-workflow.sql
+      - ./src/main/resources/db/migration/V5__exam_attempts.sql:/docker-entrypoint-initdb.d/4-exam-attempts.sql
 
   # --- DỊCH VỤ 2: BACKEND (Spring Boot) ---
   backend:
@@ -65,7 +67,7 @@ services:
       SESSION_STT_MAX_SECONDS: ${SESSION_STT_MAX_SECONDS:-180}
       STT_FINAL_TIMEOUT_SECONDS: ${STT_FINAL_TIMEOUT_SECONDS:-30}
       MAX_REPEAT_PER_TURN: ${MAX_REPEAT_PER_TURN:-2}
-      LOCAL_INFERENCE_URL: ${LOCAL_INFERENCE_URL:-http://127.0.0.1:8000}
+      LOCAL_INFERENCE_URL: ${LOCAL_INFERENCE_URL:-http://inference:8000}
       LOCAL_INFERENCE_TOKEN: ${LOCAL_INFERENCE_TOKEN:-}
       LOCAL_CONNECT_TIMEOUT_MS: ${LOCAL_CONNECT_TIMEOUT_MS:-2000}
       LOCAL_REQUEST_TIMEOUT_S: ${LOCAL_REQUEST_TIMEOUT_S:-180}
@@ -106,11 +108,10 @@ services:
       dockerfile: Dockerfile
     container_name: aiviva-inference-cpu
     restart: on-failure
-    network_mode: "service:backend"
     depends_on:
       - backend
     environment:
-      BIND_HOST: 127.0.0.1
+      BIND_HOST: 0.0.0.0
       PORT: 8000
       LOCAL_INFERENCE_TOKEN: ${LOCAL_INFERENCE_TOKEN:-}
       MODELS_DIR: /models
@@ -154,6 +155,10 @@ services:
       - ./models:/models
       - ./scripts/benchmark:/benchmarks:ro
       - ./benchmark_data:/benchmark_data:ro
+    networks:
+      default:
+        aliases:
+          - inference
 
   inference-gpu:
     profiles: ["gpu"]
@@ -162,12 +167,11 @@ services:
       dockerfile: Dockerfile.gpu
     container_name: aiviva-inference-gpu
     restart: on-failure
-    network_mode: "service:backend"
     depends_on:
       - backend
     gpus: all
     environment:
-      BIND_HOST: 127.0.0.1
+      BIND_HOST: 0.0.0.0
       PORT: 8000
       LOCAL_INFERENCE_TOKEN: ${LOCAL_INFERENCE_TOKEN:-}
       MODELS_DIR: /models
@@ -211,6 +215,10 @@ services:
       - ./models:/models
       - ./scripts/benchmark:/benchmarks:ro
       - ./benchmark_data:/benchmark_data:ro
+    networks:
+      default:
+        aliases:
+          - inference
 
 
 volumes:

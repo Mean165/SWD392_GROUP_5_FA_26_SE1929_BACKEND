@@ -192,7 +192,6 @@ public class StudentExamAssignmentService {
         if (response.getOfficialResult() != null && !response.getOfficialResult().isReleased()) {
             response.getOfficialResult().setOfficialAttemptId(null);
             response.getOfficialResult().setTotal(null);
-            response.setFinalTeacherScore(null);
         }
         if (response.getAttempts() != null) {
             UUID selected = response.getOfficialResult() == null ? null : response.getOfficialResult().getOfficialAttemptId();
@@ -208,7 +207,6 @@ public class StudentExamAssignmentService {
         }
         response.setAttemptId(enriched.getAttemptId());
         response.setAttemptStatus(enriched.getAttemptStatus());
-        response.setTotalAiScore(null);
         response.setScheduledTime(enriched.getScheduledTime());
         response.setSlotOrder(enriched.getSlotOrder());
         return response;

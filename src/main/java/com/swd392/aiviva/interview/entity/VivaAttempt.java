@@ -37,7 +37,7 @@ public class VivaAttempt implements Serializable {
     @JoinColumn(name = "assignment_id", nullable = false)
     private StudentSessionAssignment assignment;
 
-    @Column(name = "exam_attempt_id", nullable = false, unique = true)
+    @Column(name = "exam_attempt_id", unique = true)
     private UUID examAttemptId;
 
     @Column(name = "full_audio_url")
