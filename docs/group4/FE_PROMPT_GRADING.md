@@ -29,7 +29,7 @@ interface ApiResponse<T> {
 ## API thực tế
 
 - `GET /capabilities` trả `data.available`, `data.ai.ready`, `data.ai.provider`, `data.ai.model`, `data.ai.reason`, `data.features`. FE phải dùng `ai.ready`, không tự suy ra từ server sống. `provider=disabled` là mặc định.
-- `GET /queue?examId=<uuid>&status=<status>&finishedFrom=<ISO date-time>&finishedTo=<ISO date-time>&page=0&size=20` trả `data.items`, `page`, `size`, `total`. Size tối đa 100. Trạng thái: `WAITING_SESSION`, `AI_PENDING`, `AI_SCORING`, `AI_SCORED`, `AI_FAILED`, `IN_REVIEW`, `FINALIZED`, `RELEASED`, `REOPENED`.
+- `GET /queue?examId=<uuid>&status=<status>&attemptNo=2&finishedFrom=<ISO date-time>&finishedTo=<ISO date-time>&page=0&size=20` trả `data.items`, `page`, `size`, `total`. Size tối đa 100. `attemptNo` là bộ lọc tùy chọn được thêm bởi tính năng lượt thi. Trạng thái thêm `VOIDED` để loại bài khỏi hàng chấm đang hoạt động nhưng giữ lịch sử.
 - `GET /queue/summary?examId=<uuid>` trả `data.counts` theo trạng thái và `data.total`.
 - `GET /submissions/{id}` trả chi tiết bài, `version`, rubric snapshot, `turns` (câu hỏi/transcript/raw-normalized/STT flags/signals), `aiRuns`, `aiSuggestions`, `aiFeedback`, `aiEvidence`, `lecturerScores`, `lecturerNotes`. Audio URL không có.
 - `POST /submissions/{id}/claim` claim trong 10 phút; gọi `PUT /submissions/{id}/lock` để heartbeat định kỳ (ví dụ 2 phút), `DELETE /submissions/{id}/lock` khi rời màn hình.
@@ -112,7 +112,7 @@ interface GradingCapabilities {
 }
 interface GradingQueueItem {
   submission_id: UUID; attempt_id: UUID; exam_id: UUID; student_id: UUID;
-  student_name: string; exam_name: string; status: GradingStatus; ai_status: string;
+  student_name: string; exam_name: string; attempt_no: number; status: GradingStatus; ai_status: string;
   priority_score: number; priority_reasons: string; session_finished_at: string;
   ai_scored_at: string | null; finalized_at: string | null; version: number;
 }

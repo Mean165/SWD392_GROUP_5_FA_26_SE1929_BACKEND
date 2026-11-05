@@ -7,7 +7,7 @@ Base path: `/api/v1/grading`. Every endpoint requires a bearer JWT and the LE or
 | Method and path | Behavior |
 | --- | --- |
 | `GET /capabilities` | Backend availability and actual grading provider/model readiness. Local compatible server is probed at `/models` with a 1.5 s timeout. |
-| `GET /queue?examId=&status=&finishedFrom=&finishedTo=&page=0&size=20` | Assigned queue; page size is at most 100. |
+| `GET /queue?examId=&status=&attemptNo=&finishedFrom=&finishedTo=&page=0&size=20` | Assigned queue; page size is at most 100. `attemptNo` is optional and is added by the attempts feature migration. |
 | `GET /queue/summary?examId=` | Counts by status for the caller's assigned exams. |
 | `POST /reconcile` | Admin-only immediate scan of completed attempts. The same scan runs every 30 seconds. |
 | `GET /submissions/{id}` | Transcript, STT review signals, AI runs/suggestions/evidence, lecturer scores/notes, rubric snapshot and version. Raw audio URLs are omitted. |
@@ -54,7 +54,7 @@ Base path: `/api/v1/grading`. Every endpoint requires a bearer JWT and the LE or
 
 ## Errors
 
-HTTP 401 `AUTH_REQUIRED`/`AUTH_INVALID`; 403 `ACCESS_DENIED`; 404 `RESOURCE_NOT_FOUND`; 409 `STALE_VERSION`, `ALREADY_FINALIZED`, `NOT_FINALIZED`, `RUBRIC_MISMATCH`, `AI_SUGGESTION_NOT_FOUND`, `NOT_IN_REVIEW`; 423 `LOCKED_BY_OTHER`/`LOCK_EXPIRED`; 422 `INCOMPLETE_SCORES`/`REASON_REQUIRED`; 429 `RATE_LIMITED` with `Retry-After`; 503 `AI_NOT_READY` when no configured provider is ready. Other Bean Validation/domain input errors still use the shared 400 `VALIDATION_ERROR` envelope.
+HTTP 401 `AUTH_REQUIRED`/`AUTH_INVALID`; 403 `ACCESS_DENIED`; 404 `RESOURCE_NOT_FOUND`; 409 `STALE_VERSION`, `ALREADY_FINALIZED`, `NOT_FINALIZED`, `RUBRIC_MISMATCH`, `AI_SUGGESTION_NOT_FOUND`, `NOT_IN_REVIEW`, `ATTEMPTS_EXHAUSTED`, `ATTEMPT_IN_PROGRESS`, `COOLDOWN_ACTIVE`, `OUTSIDE_WINDOW`, `EXAM_CLOSED`, `POLICY_NOT_MANUAL`, `CANNOT_VOID_RELEASED`; 423 `LOCKED_BY_OTHER`/`LOCK_EXPIRED`; 422 `INCOMPLETE_SCORES`/`REASON_REQUIRED`; 429 `RATE_LIMITED` with `Retry-After`; 503 `AI_NOT_READY` when no configured provider is ready. Other Bean Validation/domain input errors still use the shared 400 `VALIDATION_ERROR` envelope.
 
 ## Not implemented in this release
 
