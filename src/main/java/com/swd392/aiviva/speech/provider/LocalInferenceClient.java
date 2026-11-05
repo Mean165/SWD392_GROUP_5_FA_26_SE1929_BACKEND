@@ -35,6 +35,7 @@ public class LocalInferenceClient {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
                 .connectTimeout(Duration.ofMillis(Math.max(100, properties.getConnectTimeoutMs())))
                 .build();
     }
@@ -172,7 +173,30 @@ public class LocalInferenceClient {
                 String code = status == 401 ? "LOCAL_AUTH_FAILED"
                         : status == 429 || status == 503 ? "LOCAL_INFERENCE_BUSY"
                         : status == 413 ? "AUDIO_TOO_LARGE" : "LOCAL_INFERENCE_ERROR";
-                throw new LocalInferenceException(code, "Local inference service returned HTTP " + status + ".", status);
+                String contentType = response.headers().firstValue("Content-Type").orElse("unknown");
+                int errorBytes = response.body() instanceof byte[] bytes ? bytes.length
+                        : response.body() instanceof String value ? value.length() : -1;
+                String reason = "response=" + contentType + ",bytes=" + errorBytes;
+                JsonNode error = responseError(response.body());
+                JsonNode detail = error.path("detail");
+                if (detail.isObject()) {
+                    if (detail.path("code").isTextual()) code = detail.path("code").asText();
+                    String message = detail.path("message").asText("");
+                    if (message.matches("[A-Za-z0-9_.-]{1,80}")) reason += ",reason=" + message;
+                } else if (detail.isArray() && !detail.isEmpty()) {
+                    JsonNode first = detail.get(0);
+                    String field = first.path("loc").isArray() && !first.path("loc").isEmpty()
+                            ? first.path("loc").get(first.path("loc").size() - 1).asText("") : "request";
+                    String type = first.path("type").asText("invalid");
+                    if (field.matches("[A-Za-z0-9_-]{1,40}") && type.matches("[A-Za-z0-9_-]{1,60}")) {
+                        reason = field + ":" + type;
+                    }
+                    code = "LOCAL_REQUEST_VALIDATION_FAILED";
+                }
+                throw new LocalInferenceException(code,
+                        "Local inference service returned HTTP " + status + " [" + code + "]"
+                                + (reason.isBlank() ? "." : " (" + reason + ")."),
+                        status, reason);
             }
             return response;
         } catch (InterruptedException exception) {
@@ -190,6 +214,16 @@ public class LocalInferenceClient {
         } catch (IOException exception) {
             throw new SpeechToTextProviderException("LOCAL_INFERENCE_PROTOCOL_ERROR", "Local inference returned invalid JSON.", exception);
         }
+    }
+
+    private JsonNode responseError(Object body) {
+        try {
+            if (body instanceof byte[] bytes) return objectMapper.readTree(bytes);
+            if (body instanceof String value) return objectMapper.readTree(value);
+        } catch (IOException ignored) {
+            // Error responses are intentionally reduced to status when they are not JSON.
+        }
+        return objectMapper.createObjectNode();
     }
 
     private byte[] multipart(String boundary, byte[] audio, String filename, String language,
@@ -274,20 +308,31 @@ public class LocalInferenceClient {
     public static final class LocalInferenceException extends RuntimeException {
         private final String code;
         private final int status;
+        private final String reason;
 
         public LocalInferenceException(String code, String message, int status) {
             super(message);
             this.code = code;
             this.status = status;
+            this.reason = "";
         }
 
         public LocalInferenceException(String code, String message, int status, Throwable cause) {
             super(message, cause);
             this.code = code;
             this.status = status;
+            this.reason = "";
+        }
+
+        public LocalInferenceException(String code, String message, int status, String reason) {
+            super(message);
+            this.code = code;
+            this.status = status;
+            this.reason = reason;
         }
 
         public String code() { return code; }
         public int status() { return status; }
+        public String reason() { return reason; }
     }
 }

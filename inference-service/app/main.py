@@ -159,16 +159,23 @@ def synthesize(body: SynthesizeRequest, _: str = Depends(require_token)) -> Resp
     validate_language(body.language)
     if body.format not in {"wav", "mp3", "opus", "pcm"}:
         raise HTTPException(status_code=400, detail={"code": "INVALID_FORMAT", "message": "Unsupported local TTS format."})
+    request_id = str(uuid.uuid4())
     try:
         wav_bytes, duration_ms, normalized_text = engine.synthesize(
             body.text, body.language, body.speed, body.normalize)
         audio = convert_format(wav_bytes, body.format)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail={"code": "INVALID_TTS_REQUEST", "message": str(exc)}) from exc
+        reason = str(exc)
+        code = reason if reason in {"tts_text_too_long", "tts_speed_out_of_range"} else "TTS_SYNTHESIS_VALUE_ERROR"
+        LOGGER.warning("tts synthesis rejected request_id=%s code=%s exception_class=%s",
+                       request_id, code, type(exc).__name__)
+        message = "TTS text is too long." if code == "tts_text_too_long" else (
+            "TTS speed is outside the supported range." if code == "tts_speed_out_of_range"
+            else "The local TTS engine rejected the synthesis request.")
+        raise HTTPException(status_code=400, detail={"code": code, "message": message}) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, headers={"Retry-After": "2"},
                              detail={"code": "TTS_NOT_READY", "message": "Local TTS model is not ready."}) from exc
-    request_id = str(uuid.uuid4())
     LOGGER.info("tts completed request_id=%s language=%s duration_ms=%s bytes=%s",
                 request_id, body.language, duration_ms, len(audio))
     media_type = {"wav": "audio/wav", "mp3": "audio/mpeg", "opus": "audio/ogg", "pcm": "audio/L16"}[body.format]
