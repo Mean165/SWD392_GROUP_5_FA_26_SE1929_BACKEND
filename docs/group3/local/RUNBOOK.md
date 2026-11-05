@@ -64,7 +64,7 @@ Internal service endpoints and request/event schemas are in `INFERENCE_API.md` a
 | GPU profile does not see GPU | Check host `nvidia-smi`, Docker Desktop WSL2 GPU passthrough, and `docker run --gpus all ... nvidia-smi`; use CPU profile if unavailable. |
 | CUDA/cuDNN load failure | Rebuild GPU profile; health will show explicit fallback. Check container logs for exception class only. |
 | Health says internal auth not configured | Run `scripts/setup-inference.ps1`; it writes a random token to ignored `.env`, then recreate backend and inference services together. |
-| Health says inference unreachable | Run `docker compose ps`; start matching profile with `scripts/run-inference.ps1 -Profile gpu` or `cpu`; verify services share backend network namespace. |
+| Health says inference unreachable | Run `scripts/dev-up.ps1 -Profile gpu` or `cpu`; backend and inference must be recreated together because inference shares the backend container's loopback namespace. Do not recreate backend alone and keep the old inference container. |
 | Audio is silent/poor | Check selected mic and FE meter, consent, 16 kHz PCM contract and language; then test with a consented known sample, not an unconsented recording. |
 | Disk is low | Keep only the chosen model and Piper voices; do not delete source/converted files while a conversion is active. Do not delete saved exam recordings manually without following retention policy. |
 | Windows/Python setup fails | Recommended serving path uses Docker Python 3.11, avoiding host Python 3.14 ML wheel compatibility. Use PowerShell scripts from repo root; paths with spaces are handled via volume arguments. |
