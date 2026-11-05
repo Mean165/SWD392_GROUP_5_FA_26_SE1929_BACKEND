@@ -1,6 +1,8 @@
 package com.swd392.aiviva.interview.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -13,6 +15,7 @@ import static org.mockito.Mockito.lenient;
 
 import com.swd392.aiviva.common.config.InterviewConfig;
 import com.swd392.aiviva.common.exception.AttemptExpiredException;
+import com.swd392.aiviva.common.exception.ExternalServiceException;
 import com.swd392.aiviva.exam.entity.ExamSession;
 import com.swd392.aiviva.exam.entity.StudentSessionAssignment;
 import com.swd392.aiviva.exam.repository.StudentSessionAssignmentRepository;
@@ -262,6 +265,31 @@ class InterviewServiceImplTest {
         assertTrue(retry.isFollowUpGenerated());
         assertEquals(2, persistedTurns.size());
         verify(answerAnalysisService, times(1)).analyzeAnswer(any());
+    }
+
+    @Test
+    void advancesToNextMainQuestionWhenFollowUpAnalyzerIsUnavailable() {
+        assignment.getSession().setMaxMainQuestions(2);
+        Question nextQuestion = Question.builder()
+                .questionId(UUID.randomUUID())
+                .questionText("Explain the next core concept.")
+                .build();
+        when(answerAnalysisService.analyzeAnswer(any()))
+                .thenThrow(new ExternalServiceException("Follow-up provider unavailable."));
+        when(questionRepository.findByApprovalStatusOrderByCreatedAtAsc("APPROVED"))
+                .thenReturn(List.of(turn.getMainQuestion(), nextQuestion));
+
+        SubmitAnswerResponse response = service.submitAnswer(SubmitAnswerRequest.builder()
+                .attemptId(attemptId)
+                .turnId(turnId)
+                .transcriptText("A relevant answer.")
+                .build());
+
+        assertFalse(response.isCompleted());
+        assertNotNull(response.getNextTurn());
+        assertEquals("MAIN", response.getNextTurn().getTurnType());
+        assertEquals("Explain the next core concept.", response.getNextTurn().getAiQuestionText());
+        assertEquals("A relevant answer.", turn.getTranscriptText());
     }
 
     @Test

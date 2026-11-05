@@ -2,6 +2,7 @@ package com.swd392.aiviva.interview.service;
 
 import com.swd392.aiviva.common.exception.BusinessException;
 import com.swd392.aiviva.common.exception.AttemptExpiredException;
+import com.swd392.aiviva.common.exception.ExternalServiceException;
 import com.swd392.aiviva.common.exception.ResourceNotFoundException;
 import com.swd392.aiviva.common.config.InterviewConfig;
 import com.swd392.aiviva.exam.entity.ExamSession;
@@ -55,9 +56,13 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class InterviewServiceImpl implements InterviewService {
+
+    private static final Logger log = LoggerFactory.getLogger(InterviewServiceImpl.class);
 
     private final VivaAttemptRepository vivaAttemptRepository;
     private final InteractionTurnRepository interactionTurnRepository;
@@ -302,15 +307,24 @@ public class InterviewServiceImpl implements InterviewService {
                 .map(previous -> new AnswerAnalysisContext.PreviousTurn(
                         previous.getTurnType(), previous.getAiQuestionText(), previous.getTranscriptText()))
                 .toList();
-        AnswerAnalysisResult analysis = answerAnalysisService.analyzeAnswer(new AnswerAnalysisContext(
-                language,
-                turn.getMainQuestion() == null ? turn.getAiQuestionText() : turn.getMainQuestion().getQuestionText(),
-                turn.getAiQuestionText(),
-                transcript,
-                previousTurns,
-                Math.toIntExact(followupsUsed),
-                maxFollowups,
-                remainingSeconds));
+        AnswerAnalysisResult analysis;
+        boolean followUpUnavailable = false;
+        try {
+            analysis = answerAnalysisService.analyzeAnswer(new AnswerAnalysisContext(
+                    language,
+                    turn.getMainQuestion() == null ? turn.getAiQuestionText() : turn.getMainQuestion().getQuestionText(),
+                    turn.getAiQuestionText(),
+                    transcript,
+                    previousTurns,
+                    Math.toIntExact(followupsUsed),
+                    maxFollowups,
+                    remainingSeconds));
+        } catch (ExternalServiceException exception) {
+            followUpUnavailable = true;
+            analysis = new AnswerAnalysisResult(null);
+            log.warn("Interview follow-up unavailable; continue with the next main question: attemptId={}, exceptionType={}",
+                    attempt.getAttemptId(), exception.getClass().getSimpleName());
+        }
 
         OffsetDateTime analyzedAt = OffsetDateTime.now();
         long remainingAfterAnalysis = remainingSeconds(attempt, turn, analyzedAt);
@@ -318,7 +332,7 @@ public class InterviewServiceImpl implements InterviewService {
         if (hasAudio) {
             turn.setAudioSegmentUrl(audioStorageService.store(attempt.getAttemptId(), request.getAudioSegmentUrl()).url());
         }
-        turn.setAiReasoning("TRANSCRIPT_RECORDED");
+        turn.setAiReasoning(followUpUnavailable ? "FOLLOW_UP_UNAVAILABLE" : "TRANSCRIPT_RECORDED");
         interactionTurnRepository.save(turn);
         saveAcousticMetrics(turn, request.getAudioDurationSeconds());
 
