@@ -29,7 +29,7 @@ CPU fallback:
 .\scripts\dev-up.ps1 -Profile cpu
 ```
 
-Inference binds to loopback in the backend's shared container network namespace; Compose does not publish port 8000. The backend and inference service use the same random `LOCAL_INFERENCE_TOKEN` stored only in ignored `.env`; it is never returned to FE. The setup script removes old speech-provider key lines by variable name without printing their values. It does not alter LLM/database/mail settings.
+Inference binds inside the private Compose network and uses the internal Docker DNS alias `inference`; port 8000 is not published to the host. The Docker backend uses `LOCAL_INFERENCE_URL_DOCKER=http://inference:8000`, independently from the host-run default `LOCAL_INFERENCE_URL=http://127.0.0.1:8000`. Backend and inference use the same random `LOCAL_INFERENCE_TOKEN` stored only in ignored `.env`; it is never returned to FE. Restart both services with `scripts/dev-up.ps1 -Profile gpu` (or `cpu`). The setup script removes old speech-provider key lines by variable name without printing their values. It does not alter LLM/database/mail settings.
 
 Check readiness through an authenticated browser session at `GET /api/student/device-check/stt/health`. Start only when both `stt.ready` and `tts.ready` are true for a complete mic/speaker check. Reasons include missing model files, loading, model load error, missing voices, local service unavailable, or internal token not configured. The API never reports ready simply because a provider name is selected.
 
@@ -64,7 +64,7 @@ Internal service endpoints and request/event schemas are in `INFERENCE_API.md` a
 | GPU profile does not see GPU | Check host `nvidia-smi`, Docker Desktop WSL2 GPU passthrough, and `docker run --gpus all ... nvidia-smi`; use CPU profile if unavailable. |
 | CUDA/cuDNN load failure | Rebuild GPU profile; health will show explicit fallback. Check container logs for exception class only. |
 | Health says internal auth not configured | Run `scripts/setup-inference.ps1`; it writes a random token to ignored `.env`, then recreate backend and inference services together. |
-| Health says inference unreachable | Run `scripts/dev-up.ps1 -Profile gpu` or `cpu`; backend and inference must be recreated together because inference shares the backend container's loopback namespace. Do not recreate backend alone and keep the old inference container. |
+| Health says inference unreachable | Run `scripts/dev-up.ps1 -Profile gpu` or `cpu`; verify the backend uses `LOCAL_INFERENCE_URL_DOCKER=http://inference:8000`, the selected inference profile is running, and both containers received the same internal token. |
 | Audio is silent/poor | Check selected mic and FE meter, consent, 16 kHz PCM contract and language; then test with a consented known sample, not an unconsented recording. |
 | Disk is low | Keep only the chosen STT model and configured TTS voices; do not delete source/converted files while a conversion is active. Do not delete saved exam recordings manually without following retention policy. |
 | Windows/Python setup fails | Recommended serving path uses Docker Python 3.11, avoiding host Python 3.14 ML wheel compatibility. Use PowerShell scripts from repo root; paths with spaces are handled via volume arguments. |
