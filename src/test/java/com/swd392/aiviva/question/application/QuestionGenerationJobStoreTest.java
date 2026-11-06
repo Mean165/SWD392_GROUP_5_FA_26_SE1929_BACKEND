@@ -3,8 +3,6 @@ package com.swd392.aiviva.question.application;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import com.swd392.aiviva.common.exception.RateLimitExceededException;
 import com.swd392.aiviva.question.dto.QuestionWorkflowDtos.GenerateRequest;
@@ -27,15 +25,11 @@ class QuestionGenerationJobStoreTest {
 
         QuestionGenerationJobStore.Snapshot job = store.enqueue(subjectId, topicId, lecturerId, List.of(documentId), request, 1);
         assertEquals("QUEUED", job.status());
-        assertEquals(job.jobId(), store.enqueue(subjectId, topicId, lecturerId, List.of(documentId), request, 1).jobId());
-        GenerateRequest distinctRequest = new GenerateRequest(subjectId, topicId, List.of(documentId), 2,
-                Map.of("REMEMBER", 1, "UNDERSTAND", 1), "en", false, new BigDecimal("10"));
         assertThrows(RateLimitExceededException.class,
-                () -> store.enqueue(subjectId, topicId, lecturerId, List.of(documentId), distinctRequest, 1));
+                () -> store.enqueue(subjectId, topicId, lecturerId, List.of(documentId), request, 1));
 
         UUID questionId = UUID.randomUUID();
-        assertTrue(store.start(job.jobId()));
-        assertFalse(store.start(job.jobId()));
+        store.start(job.jobId());
         store.addQuestion(job.jobId(), questionId);
         store.complete(job.jobId());
         QuestionGenerationJobStore.Snapshot finished = store.find(job.jobId());

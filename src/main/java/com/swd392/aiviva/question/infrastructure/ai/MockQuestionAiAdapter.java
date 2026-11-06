@@ -27,7 +27,7 @@ public class MockQuestionAiAdapter implements LlmPort, EmbeddingPort {
                 .compile("(?:Bloom distribution|requested Bloom counts): \\{([^}]+)}")
                 .matcher(prompt);
         if (distribution.find()) {
-            java.util.regex.Matcher levelMatcher = java.util.regex.Pattern.compile("(REMEMBER|UNDERSTAND|APPLY|ANALYZE|EVALUATE|CREATE)=(\\d+)").matcher(distribution.group(1));
+            java.util.regex.Matcher levelMatcher = java.util.regex.Pattern.compile("(REMEMBER|UNDERSTAND|APPLY|ANALYZE)=(\\d+)").matcher(distribution.group(1));
             while (levelMatcher.find()) for (int n = 0; n < Integer.parseInt(levelMatcher.group(2)); n++) levels.add(levelMatcher.group(1));
         }
         if (levels.size() != count) { levels.clear(); for (int i = 0; i < count; i++) levels.add("UNDERSTAND"); }

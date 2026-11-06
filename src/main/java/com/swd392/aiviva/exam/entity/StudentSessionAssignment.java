@@ -41,20 +41,11 @@ public class StudentSessionAssignment implements Serializable {
     @JoinColumn(name = "student_id", nullable = false)
     private AppUser student;
 
-    @Column(name = "scheduled_time")
+    @Column(name = "scheduled_time", nullable = false)
     private OffsetDateTime scheduledTime;
 
     @Column(name = "status", nullable = false)
     private String status;
-
-    @Column(name = "slot_order")
-    private Integer slotOrder;
-
-    @Column(name = "cancelled_reason", columnDefinition = "TEXT")
-    private String cancelledReason;
-
-    @Column(name = "removed_at")
-    private OffsetDateTime removedAt;
 
     public ExamSession getSession() {
         return examSession;

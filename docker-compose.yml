@@ -16,8 +16,6 @@ services:
       - pg_data:/var/lib/postgresql/data
       - ./src/main/resources/schema.sql:/docker-entrypoint-initdb.d/1-schema.sql
       - ./src/main/resources/data.sql:/docker-entrypoint-initdb.d/2-data.sql
-      - ./src/main/resources/db/migration/V4__group4_grading_workflow.sql:/docker-entrypoint-initdb.d/3-group4-grading-workflow.sql
-      - ./src/main/resources/db/migration/V5__exam_attempts.sql:/docker-entrypoint-initdb.d/4-exam-attempts.sql
 
   # --- DỊCH VỤ 2: BACKEND (Spring Boot) ---
   backend:
@@ -33,7 +31,6 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgresdb:5432/aiviva_db
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-123456}
-      JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
       MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
@@ -43,40 +40,11 @@ services:
       OPENAI_API_URL: ${OPENAI_API_URL:-https://api.openai.com/v1/chat/completions}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       OPENAI_TIMEOUT: ${OPENAI_TIMEOUT:-30000}
-      TTS_PROVIDER: ${TTS_PROVIDER:-local}
-      TTS_CACHE_MAX_ENTRIES: ${TTS_CACHE_MAX_ENTRIES:-512}
-      LOCAL_TTS_ENGINE: ${LOCAL_TTS_ENGINE:-korva}
-      LOCAL_TTS_VOICE_VI: ${LOCAL_TTS_VOICE_VI:-khanh_vy}
-      LOCAL_TTS_VOICE_EN: ${LOCAL_TTS_VOICE_EN:-en_US-lessac-medium}
-      LOCAL_TTS_SPEED: ${LOCAL_TTS_SPEED:-1.0}
-      LOCAL_TTS_CACHE_DIR: ${LOCAL_TTS_CACHE_DIR:-/models/tts-cache}
-      LOCAL_TTS_MAX_TEXT_LENGTH: ${LOCAL_TTS_MAX_TEXT_LENGTH:-4000}
-      STT_PROVIDER: ${STT_PROVIDER:-local}
-      STT_ALLOWED_ORIGINS: ${STT_ALLOWED_ORIGINS:-http://localhost:5173}
-      STT_MAX_SESSION_DURATION_SECONDS: ${STT_MAX_SESSION_DURATION_SECONDS:-60}
-      STT_MAX_FRAME_BYTES: ${STT_MAX_FRAME_BYTES:-24000}
-      STT_FINISH_TIMEOUT_SECONDS: ${STT_FINISH_TIMEOUT_SECONDS:-10}
-      DEVICE_CHECK_STT_SESSIONS_PER_MINUTE: ${DEVICE_CHECK_STT_SESSIONS_PER_MINUTE:-5}
-      STT_MODE: ${STT_MODE:-streaming_only}
-      STT_MOCK_SCENARIO: ${STT_MOCK_SCENARIO:-normal}
-      STT_MOCK_SCENARIO_FILE: ${STT_MOCK_SCENARIO_FILE:-}
-      STT_RECONCILE_THRESHOLD: ${STT_RECONCILE_THRESHOLD:-0.95}
-      STT_MIN_CONFIDENCE: ${STT_MIN_CONFIDENCE:-0.55}
-      GLOSSARY_FIX_MIN_SCORE: ${GLOSSARY_FIX_MIN_SCORE:-0.92}
-      PAUSE_MIN_MS: ${PAUSE_MIN_MS:-700}
-      SESSION_STT_MAX_SECONDS: ${SESSION_STT_MAX_SECONDS:-180}
-      STT_FINAL_TIMEOUT_SECONDS: ${STT_FINAL_TIMEOUT_SECONDS:-30}
-      MAX_REPEAT_PER_TURN: ${MAX_REPEAT_PER_TURN:-2}
-      LOCAL_INFERENCE_URL: ${LOCAL_INFERENCE_URL_DOCKER:-http://inference:8000}
-      LOCAL_INFERENCE_TOKEN: ${LOCAL_INFERENCE_TOKEN:-}
-      LOCAL_CONNECT_TIMEOUT_MS: ${LOCAL_CONNECT_TIMEOUT_MS:-2000}
-      LOCAL_REQUEST_TIMEOUT_S: ${LOCAL_REQUEST_TIMEOUT_S:-180}
-      STT_BREAKER_FAILURE_THRESHOLD: ${STT_BREAKER_FAILURE_THRESHOLD:-5}
-      STT_BREAKER_OPEN_SECONDS: ${STT_BREAKER_OPEN_SECONDS:-15}
-      LOCAL_STT_PROMPT_MAX_TOKENS: ${LOCAL_STT_PROMPT_MAX_TOKENS:-160}
-      AUDIO_RETENTION_DAYS: ${AUDIO_RETENTION_DAYS:-30}
+      OPENAI_LANGUAGE: ${OPENAI_LANGUAGE:-vi}
+      OPENAI_TTS_VOICE_VI: ${OPENAI_TTS_VOICE_VI:-}
+      OPENAI_TTS_VOICE_EN: ${OPENAI_TTS_VOICE_EN:-}
+      OPENAI_TTS_MAX_TEXT_LENGTH: ${OPENAI_TTS_MAX_TEXT_LENGTH:-4000}
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
-      QUESTION_AI_PROVIDER: ${QUESTION_AI_PROVIDER:-${LLM_PROVIDER:-mock}}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
       GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-gemini-embedding-001}
@@ -95,135 +63,11 @@ services:
       INTERVIEW_MAX_AUDIO_BYTES: ${INTERVIEW_MAX_AUDIO_BYTES:-10485760}
       INTERVIEW_MAX_TRANSCRIPT_CHARACTERS: ${INTERVIEW_MAX_TRANSCRIPT_CHARACTERS:-20000}
       LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY: DEBUG
-      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB: INFO
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB: DEBUG
     volumes:
       - question_documents:/app/uploads/question-documents
-      - exam_audio:/app/uploads/audio
-      - ./models:/models
-
-  inference-cpu:
-    profiles: ["cpu"]
-    build:
-      context: ./inference-service
-      dockerfile: Dockerfile
-    container_name: aiviva-inference-cpu
-    restart: on-failure
-    depends_on:
-      - backend
-    environment:
-      BIND_HOST: 0.0.0.0
-      ALLOW_REMOTE_BIND: "true"
-      PORT: 8000
-      LOCAL_INFERENCE_TOKEN: ${LOCAL_INFERENCE_TOKEN:-}
-      MODELS_DIR: /models
-      HF_HOME: /models/hf-cache
-      LOCAL_STT_MODEL: ${LOCAL_STT_MODEL:-/models/stt/large-v3-turbo-ct2}
-      LOCAL_STT_FALLBACK_MODEL: ${LOCAL_STT_FALLBACK_MODEL:-/models/stt/base}
-      LOCAL_STT_DEVICE: ${LOCAL_STT_DEVICE:-auto}
-      LOCAL_STT_COMPUTE_TYPE: ${LOCAL_STT_COMPUTE_TYPE:-int8_float16}
-      LOCAL_STT_PARTIAL_INTERVAL_MS: ${LOCAL_STT_PARTIAL_INTERVAL_MS:-1000}
-      LOCAL_STT_COMMIT_SILENCE_MS: ${LOCAL_STT_COMMIT_SILENCE_MS:-700}
-      LOCAL_STT_MAX_SEGMENT_S: ${LOCAL_STT_MAX_SEGMENT_S:-28}
-      LOCAL_STT_MAX_CONCURRENT: ${LOCAL_STT_MAX_CONCURRENT:-1}
-      LOCAL_STT_CPU_THREADS: ${LOCAL_STT_CPU_THREADS:-8}
-      LOCAL_STT_PROMPT_MAX_TOKENS: ${LOCAL_STT_PROMPT_MAX_TOKENS:-160}
-      LOCAL_STT_PARTIAL_BEAM_SIZE: ${LOCAL_STT_PARTIAL_BEAM_SIZE:-1}
-      LOCAL_STT_FINAL_BEAM_SIZE: ${LOCAL_STT_FINAL_BEAM_SIZE:-5}
-      LOCAL_STT_PARTIAL_AGREEMENT_ROUNDS: ${LOCAL_STT_PARTIAL_AGREEMENT_ROUNDS:-2}
-      LOCAL_STT_QUEUE_WAIT_MS: ${LOCAL_STT_QUEUE_WAIT_MS:-250}
-      LOCAL_TTS_ENGINE: ${LOCAL_TTS_ENGINE:-korva}
-      LOCAL_TTS_VOICE_VI: ${LOCAL_TTS_VOICE_VI:-khanh_vy}
-      LOCAL_TTS_VOICE_EN: ${LOCAL_TTS_VOICE_EN:-en_US-lessac-medium}
-      LOCAL_TTS_KORVA_ASSETS_DIR: ${LOCAL_TTS_KORVA_ASSETS_DIR:-/models/tts/korvatts}
-      LOCAL_TTS_KORVA_VOICE: ${LOCAL_TTS_KORVA_VOICE:-khanh_vy}
-      LOCAL_TTS_KORVA_STEPS: ${LOCAL_TTS_KORVA_STEPS:-32}
-      LOCAL_TTS_CPU_THREADS: ${LOCAL_TTS_CPU_THREADS:-4}
-      LOCAL_TTS_PIPER_VOICE_VI: ${LOCAL_TTS_PIPER_VOICE_VI:-/models/tts/vi_VN-vais1000-medium.onnx}
-      LOCAL_TTS_PIPER_VOICE_EN: ${LOCAL_TTS_PIPER_VOICE_EN:-/models/tts/en_US-lessac-medium.onnx}
-      LOCAL_TTS_DEVICE: ${LOCAL_TTS_DEVICE:-cpu}
-      LOCAL_TTS_SPEED: ${LOCAL_TTS_SPEED:-1.0}
-      LOCAL_TTS_CACHE_DIR: /models/tts-cache
-      LOCAL_TTS_NORMALIZE: ${LOCAL_TTS_NORMALIZE:-true}
-      LOCAL_TTS_PRONUNCIATION_LEXICON: ${LOCAL_TTS_PRONUNCIATION_LEXICON:-/srv/inference/data/pronunciation_lexicon.json}
-      LOCAL_TTS_CACHE_MAX_ENTRIES: ${LOCAL_TTS_CACHE_MAX_ENTRIES:-256}
-      LOCAL_TTS_MAX_TEXT_LENGTH: ${LOCAL_TTS_MAX_TEXT_LENGTH:-4000}
-      LOCAL_TTS_USE_CUDA: ${LOCAL_TTS_USE_CUDA:-false}
-      LOCAL_STT_CONFIDENCE_THRESHOLD: ${LOCAL_STT_CONFIDENCE_THRESHOLD:-0.35}
-      LOCAL_STT_NO_SPEECH_THRESHOLD: ${LOCAL_STT_NO_SPEECH_THRESHOLD:-0.6}
-      LOCAL_STT_LOGPROB_THRESHOLD: ${LOCAL_STT_LOGPROB_THRESHOLD:--1.0}
-      LOCAL_STT_COMPRESSION_RATIO_THRESHOLD: ${LOCAL_STT_COMPRESSION_RATIO_THRESHOLD:-2.4}
-    volumes:
-      - ./models:/models
-      - ./scripts/benchmark:/benchmarks:ro
-      - ./benchmark_data:/benchmark_data:ro
-    networks:
-      default:
-        aliases:
-          - inference
-
-  inference-gpu:
-    profiles: ["gpu"]
-    build:
-      context: ./inference-service
-      dockerfile: Dockerfile.gpu
-    container_name: aiviva-inference-gpu
-    restart: on-failure
-    depends_on:
-      - backend
-    gpus: all
-    environment:
-      BIND_HOST: 0.0.0.0
-      ALLOW_REMOTE_BIND: "true"
-      PORT: 8000
-      LOCAL_INFERENCE_TOKEN: ${LOCAL_INFERENCE_TOKEN:-}
-      MODELS_DIR: /models
-      HF_HOME: /models/hf-cache
-      LOCAL_STT_MODEL: ${LOCAL_STT_MODEL:-/models/stt/large-v3-turbo-ct2}
-      LOCAL_STT_FALLBACK_MODEL: ${LOCAL_STT_FALLBACK_MODEL:-/models/stt/base}
-      LOCAL_STT_DEVICE: ${LOCAL_STT_DEVICE:-cuda}
-      LOCAL_STT_COMPUTE_TYPE: ${LOCAL_STT_COMPUTE_TYPE:-int8_float16}
-      LOCAL_STT_PARTIAL_INTERVAL_MS: ${LOCAL_STT_PARTIAL_INTERVAL_MS:-1000}
-      LOCAL_STT_COMMIT_SILENCE_MS: ${LOCAL_STT_COMMIT_SILENCE_MS:-700}
-      LOCAL_STT_MAX_SEGMENT_S: ${LOCAL_STT_MAX_SEGMENT_S:-28}
-      LOCAL_STT_MAX_CONCURRENT: ${LOCAL_STT_MAX_CONCURRENT:-1}
-      LOCAL_STT_CPU_THREADS: ${LOCAL_STT_CPU_THREADS:-8}
-      LOCAL_STT_PROMPT_MAX_TOKENS: ${LOCAL_STT_PROMPT_MAX_TOKENS:-160}
-      LOCAL_STT_PARTIAL_BEAM_SIZE: ${LOCAL_STT_PARTIAL_BEAM_SIZE:-1}
-      LOCAL_STT_FINAL_BEAM_SIZE: ${LOCAL_STT_FINAL_BEAM_SIZE:-5}
-      LOCAL_STT_PARTIAL_AGREEMENT_ROUNDS: ${LOCAL_STT_PARTIAL_AGREEMENT_ROUNDS:-2}
-      LOCAL_STT_QUEUE_WAIT_MS: ${LOCAL_STT_QUEUE_WAIT_MS:-250}
-      LOCAL_TTS_ENGINE: ${LOCAL_TTS_ENGINE:-korva}
-      LOCAL_TTS_VOICE_VI: ${LOCAL_TTS_VOICE_VI:-khanh_vy}
-      LOCAL_TTS_VOICE_EN: ${LOCAL_TTS_VOICE_EN:-en_US-lessac-medium}
-      LOCAL_TTS_KORVA_ASSETS_DIR: ${LOCAL_TTS_KORVA_ASSETS_DIR:-/models/tts/korvatts}
-      LOCAL_TTS_KORVA_VOICE: ${LOCAL_TTS_KORVA_VOICE:-khanh_vy}
-      LOCAL_TTS_KORVA_STEPS: ${LOCAL_TTS_KORVA_STEPS:-32}
-      LOCAL_TTS_CPU_THREADS: ${LOCAL_TTS_CPU_THREADS:-4}
-      LOCAL_TTS_PIPER_VOICE_VI: ${LOCAL_TTS_PIPER_VOICE_VI:-/models/tts/vi_VN-vais1000-medium.onnx}
-      LOCAL_TTS_PIPER_VOICE_EN: ${LOCAL_TTS_PIPER_VOICE_EN:-/models/tts/en_US-lessac-medium.onnx}
-      LOCAL_TTS_DEVICE: ${LOCAL_TTS_DEVICE:-cpu}
-      LOCAL_TTS_SPEED: ${LOCAL_TTS_SPEED:-1.0}
-      LOCAL_TTS_CACHE_DIR: /models/tts-cache
-      LOCAL_TTS_NORMALIZE: ${LOCAL_TTS_NORMALIZE:-true}
-      LOCAL_TTS_PRONUNCIATION_LEXICON: ${LOCAL_TTS_PRONUNCIATION_LEXICON:-/srv/inference/data/pronunciation_lexicon.json}
-      LOCAL_TTS_CACHE_MAX_ENTRIES: ${LOCAL_TTS_CACHE_MAX_ENTRIES:-256}
-      LOCAL_TTS_MAX_TEXT_LENGTH: ${LOCAL_TTS_MAX_TEXT_LENGTH:-4000}
-      LOCAL_TTS_USE_CUDA: ${LOCAL_TTS_USE_CUDA:-false}
-      LOCAL_STT_CONFIDENCE_THRESHOLD: ${LOCAL_STT_CONFIDENCE_THRESHOLD:-0.35}
-      LOCAL_STT_NO_SPEECH_THRESHOLD: ${LOCAL_STT_NO_SPEECH_THRESHOLD:-0.6}
-      LOCAL_STT_LOGPROB_THRESHOLD: ${LOCAL_STT_LOGPROB_THRESHOLD:--1.0}
-      LOCAL_STT_COMPRESSION_RATIO_THRESHOLD: ${LOCAL_STT_COMPRESSION_RATIO_THRESHOLD:-2.4}
-    volumes:
-      - ./models:/models
-      - ./scripts/benchmark:/benchmarks:ro
-      - ./benchmark_data:/benchmark_data:ro
-    networks:
-      default:
-        aliases:
-          - inference
 
 
 volumes:
   pg_data:
   question_documents:
-  exam_audio:

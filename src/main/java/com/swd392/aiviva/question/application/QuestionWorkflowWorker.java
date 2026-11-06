@@ -9,7 +9,6 @@ import com.swd392.aiviva.question.application.QuestionWorkflowEvents.ProcessDocu
 import com.swd392.aiviva.question.application.QuestionWorkflowEvents.RunGeneration;
 import com.swd392.aiviva.question.infrastructure.DocumentTextExtractor;
 import com.swd392.aiviva.question.storage.port.StoragePort;
-import com.swd392.aiviva.question.enums.BloomLevel;
 import com.swd392.aiviva.question.application.QuestionGenerationJobStore.Snapshot;
 import java.io.InputStream;
 import java.math.BigDecimal;
@@ -23,8 +22,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.event.TransactionPhase;
@@ -35,7 +32,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Component
 public class QuestionWorkflowWorker {
-    private static final Logger log = LoggerFactory.getLogger(QuestionWorkflowWorker.class);
     private record Chunk(UUID chunkId, UUID documentId, String filename, int index, String location, String content, List<Double> embedding) {}
     private final JdbcTemplate jdbc;
     private final StoragePort storage;
@@ -90,12 +86,12 @@ public class QuestionWorkflowWorker {
         Snapshot job = jobs.find(jobId);
         if (job == null) return;
         try {
-            if (!jobs.start(jobId)) return;
+            jobs.start(jobId);
             GenerateRequest request = job.request();
             List<Chunk> chunks = loadChunks(job.documentIds());
             if (chunks.isEmpty()) throw new IllegalArgumentException("No indexed document chunks are available");
             String topicContext = jdbc.queryForObject("SELECT topic_name || ' ' || coalesce(description, '') FROM subject_topic WHERE topic_id=?", String.class, request.topicId());
-            List<Double> queryVector = embeddings.embedQuery(topicContext + ". Bloom distribution: " + request.bloomDistribution());
+            List<Double> queryVector = embeddings.embed(topicContext + ". Bloom distribution: " + request.bloomDistribution());
             List<Chunk> retrieved = chunks.stream().sorted(Comparator.comparingDouble((Chunk c) -> cosine(queryVector, c.embedding())).reversed()).limit(8).toList();
             String prompt = buildPrompt(request, retrieved);
             JsonNode questions = null;
@@ -114,9 +110,7 @@ public class QuestionWorkflowWorker {
             }
             jobs.complete(jobId);
         } catch (Exception e) {
-            String failure = safeFailure(e);
-            log.warn("Question generation job {} failed: {}", jobId, failure);
-            jobs.fail(jobId, failure);
+            jobs.fail(jobId, safeFailure(e));
         }
     }
 
@@ -150,7 +144,7 @@ public class QuestionWorkflowWorker {
             try (InputStream stream = storage.open((String) document.get("storageKey"))) {
                 List<DocumentTextExtractor.PageText> pages = new DocumentTextExtractor().extract((String) document.get("filename"), stream.readAllBytes());
                 for (Chunk chunk : split(documentId, (String) document.get("filename"), pages)) {
-                    result.add(new Chunk(chunk.chunkId(), chunk.documentId(), chunk.filename(), chunk.index(), chunk.location(), chunk.content(), embeddings.embedDocument(chunk.content())));
+                    result.add(new Chunk(chunk.chunkId(), chunk.documentId(), chunk.filename(), chunk.index(), chunk.location(), chunk.content(), embeddings.embed(chunk.content())));
                 }
             } catch (java.io.IOException e) { throw new IllegalStateException("Unable to read a selected document", e); }
         }
@@ -173,7 +167,7 @@ public class QuestionWorkflowWorker {
                 + "Use only the source text below; do not add facts not stated there. No multiple-choice questions. "
                 + "Assign exactly the requested Bloom counts: " + request.bloomDistribution() + ". "
                 + "Return JSON object {questions:[{questionText,referenceAnswer,bloomLevel,estimatedDifficulty,suggestedAnswerMinutes,rubric:[{name,description,maxPoints,weight}],citationIndexes:[integer]}]}. "
-                + "difficulty is 1-5, suggestedAnswerMinutes is 1-60. Bloom must be one of REMEMBER, UNDERSTAND, APPLY, ANALYZE, EVALUATE, CREATE. "
+                + "difficulty is 1-5, suggestedAnswerMinutes is 1-60. Bloom must be REMEMBER, UNDERSTAND, APPLY, or ANALYZE. "
                 + (request.generateRubric() ? "Rubric maxPoints must total " + request.rubricTotalPoints() + " and weights total 1.0. " : "Set rubric to []. ")
                 + "citationIndexes must refer to at least one source.\nSOURCE TEXT:\n" + source;
     }
@@ -183,14 +177,11 @@ public class QuestionWorkflowWorker {
         if (!questions.isArray() || questions.size() != request.numberOfQuestions()) throw new IllegalArgumentException("Question count mismatch");
         Map<String, Integer> levels = new java.util.HashMap<>();
         Set<String> texts = new HashSet<>();
-        for (int questionIndex = 0; questionIndex < questions.size(); questionIndex++) {
-            JsonNode question = questions.get(questionIndex);
+        for (JsonNode question : questions) {
             String text = question.path("questionText").asText("").trim();
             String answer = question.path("referenceAnswer").asText("").trim();
             String bloom = question.path("bloomLevel").asText("");
-            try { bloom = BloomLevel.parse(bloom).name(); }
-            catch (IllegalArgumentException ex) { throw new IllegalArgumentException("Required question field or Bloom level is invalid at generated item " + (questionIndex + 1)); }
-            if (text.isEmpty() || answer.isEmpty()) throw new IllegalArgumentException("Required question field is invalid at generated item " + (questionIndex + 1));
+            if (text.isEmpty() || answer.isEmpty() || !Set.of("REMEMBER", "UNDERSTAND", "APPLY", "ANALYZE").contains(bloom)) throw new IllegalArgumentException("Required question field or Bloom level is invalid");
             if (text.contains("?") && text.matches("(?is).*\\b(option [abcd]|select one|choose one)\\b.*")) throw new IllegalArgumentException("Multiple-choice questions are not accepted");
             if (!texts.add(normalize(text))) throw new IllegalArgumentException("Duplicate generated questions");
             levels.merge(bloom, 1, Integer::sum);
@@ -268,7 +259,7 @@ public class QuestionWorkflowWorker {
                         source_type, approval_status, created_at, generation_metadata_json)
                     VALUES (?, ?, ?, ?, ?, 'AI_GENERATED', 'DRAFT', now(), ?::jsonb)
                     """, questionId, job.topicId(), job.requestedBy(), item.path("questionText").asText().trim(),
-                    BloomLevel.parse(item.path("bloomLevel").asText()).name(), metadataJson);
+                    item.path("bloomLevel").asText(), metadataJson);
             if (job.request().generateRubric()) {
                 for (JsonNode criterion : item.path("rubric")) {
                     jdbc.update("""
@@ -288,8 +279,6 @@ public class QuestionWorkflowWorker {
     }
 
     private String safeFailure(Exception error) {
-        if (error instanceof com.swd392.aiviva.question.infrastructure.ai.GeminiApiException gemini)
-            return gemini.userMessage();
         String message = error.getMessage() == null ? "" : error.getMessage().toLowerCase(Locale.ROOT);
         if (message.contains("429") || message.contains("quota") || message.contains("resource_exhausted")) return "AI provider quota or rate limit reached";
         if (message.contains("timeout") || error instanceof java.net.SocketTimeoutException) return "AI provider request timed out";

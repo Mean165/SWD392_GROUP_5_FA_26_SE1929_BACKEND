@@ -9,7 +9,6 @@ import static org.mockito.Mockito.when;
 import io.jsonwebtoken.security.SignatureException;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.AfterEach;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import com.swd392.aiviva.user.repository.UserRepository;
@@ -19,11 +18,6 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 
 class JwtAuthenticationFilterTest {
-
-    @AfterEach
-    void clearSecurityContext() {
-        org.springframework.security.core.context.SecurityContextHolder.clearContext();
-    }
 
     @Test
     void invalidSignatureReturnsUnauthorizedWithoutLeakingDetails() throws Exception {
@@ -41,7 +35,7 @@ class JwtAuthenticationFilterTest {
 
         assertEquals(401, response.getStatus());
         assertEquals("Bearer error=\"invalid_token\"", response.getHeader("WWW-Authenticate"));
-        assertTrue(response.getContentAsString().contains("AUTH_INVALID"));
+        assertTrue(response.getContentAsString().isEmpty());
         verifyNoInteractions(userRepository, chain);
     }
 

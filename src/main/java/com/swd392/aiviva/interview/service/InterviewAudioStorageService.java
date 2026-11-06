@@ -10,33 +10,23 @@ import java.nio.file.StandardOpenOption;
 import java.util.Base64;
 import java.util.Locale;
 import java.util.UUID;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.http.MediaType;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class InterviewAudioStorageService {
-
-    private static final Logger log = LoggerFactory.getLogger(InterviewAudioStorageService.class);
 
     private static final Pattern DATA_URL =
             Pattern.compile("^data:(audio/[a-z0-9.+-]+);base64,([A-Za-z0-9+/]*={0,2})$", Pattern.CASE_INSENSITIVE);
 
     private final Path storageDirectory;
     private final int maxAudioBytes;
-    private final int retentionDays;
 
     public InterviewAudioStorageService(InterviewConfig config) {
         storageDirectory = Path.of(config.getAudioStorageDirectory()).toAbsolutePath().normalize();
         maxAudioBytes = config.getMaxAudioBytes();
-        retentionDays = config.getAudioRetentionDays();
     }
 
     public StoredAudio store(UUID attemptId, String dataUrl) {
@@ -56,44 +46,6 @@ public class InterviewAudioStorageService {
         String filename = UUID.randomUUID() + "." + extension;
         write(filename, bytes);
         return new StoredAudio("/api/interviews/" + attemptId + "/audio/" + filename, contentType);
-    }
-
-    public StoredAudio storeBytes(UUID attemptId, byte[] bytes, String contentType) {
-        if (attemptId == null || bytes == null || bytes.length == 0 || bytes.length > maxAudioBytes) {
-            throw new BusinessException("Audio payload is empty or exceeds the maximum size.");
-        }
-        if (!"audio/wav".equalsIgnoreCase(contentType)) {
-            throw new BusinessException("Exam audio storage accepts PCM WAV only.");
-        }
-        String filename = UUID.randomUUID() + ".wav";
-        write(filename, bytes);
-        return new StoredAudio("/api/interviews/" + attemptId + "/audio/" + filename, "audio/wav");
-    }
-
-    @Scheduled(fixedDelay = 86_400_000L, initialDelay = 60_000L)
-    public void deleteExpiredAudio() {
-        try {
-            if (!Files.isDirectory(storageDirectory)) return;
-            Instant cutoff = Instant.now().minus(retentionDays, ChronoUnit.DAYS);
-            AtomicInteger deleted = new AtomicInteger();
-            try (var files = Files.list(storageDirectory)) {
-                files.filter(Files::isRegularFile)
-                        .filter(path -> path.getFileName().toString().matches("[0-9a-fA-F-]{36}\\.(webm|wav|mp3|mp4|ogg|aac|flac)"))
-                        .forEach(path -> {
-                            try {
-                                if (Files.getLastModifiedTime(path).toInstant().isBefore(cutoff)
-                                        && Files.deleteIfExists(path)) deleted.incrementAndGet();
-                            } catch (IOException exception) {
-                                log.warn("Exam audio retention cleanup failed for one file: exceptionType={}",
-                                        exception.getClass().getSimpleName());
-                            }
-                        });
-            }
-            if (deleted.get() > 0) log.info("Exam audio retention cleanup deletedFiles={} retentionDays={}",
-                    deleted.get(), retentionDays);
-        } catch (IOException exception) {
-            log.warn("Exam audio retention cleanup failed: exceptionType={}", exception.getClass().getSimpleName());
-        }
     }
 
     public byte[] read(String filename) {

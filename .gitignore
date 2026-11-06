@@ -64,18 +64,3 @@ bin/
 
 ### Lombok ###
 lombok.config
-
-# Local inference assets and benchmark data are never committed.
-models/
-benchmark_data/
-reports/tts_samples/
-reports/benchmark_*.csv
-reports/benchmark_*.md
-reports/tts_benchmark_*.csv
-reports/tts_benchmark_*.md
-reports/pipeline_dry_run_*.json
-inference-service/.venv/
-inference-service/__pycache__/
-inference-service/.pytest_cache/
-__pycache__/
-.pytest_cache/
