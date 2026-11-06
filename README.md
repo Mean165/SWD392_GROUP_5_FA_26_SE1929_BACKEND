@@ -1406,6 +1406,8 @@ Ví dụ:
 
 Hợp đồng các endpoint phỏng vấn sinh viên, audio, xác thực và giới hạn thời gian được mô tả tại [`docs/interview-api.md`](docs/interview-api.md).
 
+Thiết lập STT/TTS local offline, Docker profile CPU/GPU, inference API, model license, resource health và benchmark được mô tả tại [`docs/group3/local/`](docs/group3/local/).
+
 Ví dụ Question API:
 
 ```text
