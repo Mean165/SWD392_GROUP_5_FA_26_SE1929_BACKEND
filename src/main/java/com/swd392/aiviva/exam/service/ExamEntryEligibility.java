@@ -13,15 +13,18 @@ public final class ExamEntryEligibility {
     public static ExamEntryEligibilityResponse evaluate(StudentSessionAssignment assignment, OffsetDateTime now) {
         ExamSession session = assignment.getExamSession();
         OffsetDateTime scheduledTime = assignment.getScheduledTime();
-        OffsetDateTime opensAt = scheduledTime.minusMinutes(10);
-        OffsetDateTime closesAt = scheduledTime.plusMinutes(session.getTimeLimitMinutes());
+        OffsetDateTime opensAt = scheduledTime == null ? null : scheduledTime.minusMinutes(10);
+        OffsetDateTime closesAt = scheduledTime == null ? null : scheduledTime.plusMinutes(session.getTimeLimitMinutes());
         String reason = null;
 
         if ("CANCELLED".equalsIgnoreCase(session.getStatus())) {
             reason = "Exam session is cancelled.";
         } else if ("COMPLETED".equalsIgnoreCase(assignment.getStatus())
-                || "ABSENT".equalsIgnoreCase(assignment.getStatus())) {
+                || "ABSENT".equalsIgnoreCase(assignment.getStatus())
+                || "CANCELLED".equalsIgnoreCase(assignment.getStatus())) {
             reason = "This assignment is no longer available.";
+        } else if (scheduledTime == null) {
+            reason = "This assignment has not been scheduled yet.";
         } else if (now.isBefore(opensAt)) {
             reason = "The interview entry window has not opened yet.";
         } else if (now.isAfter(closesAt)) {

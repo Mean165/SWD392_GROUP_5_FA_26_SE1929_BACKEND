@@ -9,4 +9,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface RubricCriteriaRepository extends JpaRepository<RubricCriteria, UUID> {
     List<RubricCriteria> findByQuestion_QuestionId(UUID questionId);
+    List<RubricCriteria> findByRubric_RubricIdOrderByCriteriaId(UUID rubricId);
+    long countByRubric_RubricId(UUID rubricId);
 }

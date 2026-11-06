@@ -175,27 +175,32 @@ public class DeviceCheckServiceImpl implements DeviceCheckService {
     }
 
     private byte[] cachedTts(String language, String sample) {
-        byte[] audio = ttsAudioCache.get(language);
+        String key = textToSpeechService.cacheKey(sample, language, "mp3");
+        if (key == null) {
+            key = language;
+        }
+        final String cacheKey = key;
+        byte[] audio = ttsAudioCache.get(key);
         if (audio != null) {
-            return audio;
+            return audio.clone();
         }
         synchronized (ttsAudioCache) {
-            audio = ttsAudioCache.get(language);
+            audio = ttsAudioCache.get(key);
             if (audio == null) {
                 if (ttsAudioCache.size() >= 2) {
                     String evict = ttsAudioCache.keySet().stream()
-                            .filter(key -> !key.equals(language))
+                            .filter(existingKey -> !existingKey.equals(cacheKey))
                             .findFirst()
                             .orElse(null);
                     if (evict != null) {
                         ttsAudioCache.remove(evict);
                     }
                 }
-                audio = textToSpeechService.synthesize(sample, language, "mp3");
-                ttsAudioCache.put(language, audio.clone());
+                audio = textToSpeechService.synthesize(sample, language);
+                ttsAudioCache.put(cacheKey, audio.clone());
             }
         }
-        return audio;
+        return audio.clone();
     }
 
     private String normalizeLanguage(String requestedLanguage) {

@@ -5,5 +5,6 @@ public enum ParticipantStatus {
     SCHEDULED,
     IN_PROGRESS,
     COMPLETED,
-    ABSENT
+    ABSENT,
+    CANCELLED
 }

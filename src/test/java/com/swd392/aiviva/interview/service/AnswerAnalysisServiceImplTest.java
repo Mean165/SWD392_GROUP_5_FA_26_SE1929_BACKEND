@@ -2,7 +2,9 @@ package com.swd392.aiviva.interview.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -13,6 +15,7 @@ import com.swd392.aiviva.interview.dto.AnswerAnalysisResult;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -25,50 +28,43 @@ class AnswerAnalysisServiceImplTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
-    void analyzesQuestionContextAndValidatesRubricResults() {
+    void requestsOnlyAContextualFollowUpAndNeverSuppliesRubricOrScoreFields() {
         AnswerAnalysisServiceImpl service = new AnswerAnalysisServiceImpl(llmProviderAdapter, objectMapper);
         AnswerAnalysisContext context = new AnswerAnalysisContext(
-                "vi",
-                "Explain encapsulation",
-                "Explain encapsulation",
+                "vi", "Explain encapsulation", "Explain encapsulation",
                 "It hides internal state behind a public API.",
                 List.of(new AnswerAnalysisContext.PreviousTurn(
                         "MAIN", "Explain encapsulation", "Encapsulation protects internal state.")),
-                List.of(new AnswerAnalysisContext.RubricItem(0, "Data hiding", "Restrict direct access", 0.5)),
-                0,
-                2,
-                90);
-        when(llmProviderAdapter.generateText(anyString())).thenReturn("""
-                {
-                  "classification":"PARTIAL",
-                  "summary":"The answer explains data hiding but omits controlled access.",
-                  "missingConcepts":["controlled access"],
-                  "followUpQuestion":"How can callers access or change the hidden state safely?",
-                  "criteria":[{"rubricIndex":0,"criteriaName":"Data hiding","scoreFraction":0.7,
-                    "complianceStatus":"PARTIAL","missingConcepts":["controlled access"],
-                    "reasoning":"The transcript describes hiding, but not controlled access."}]
-                }
-                """);
+                0, 2, 90);
+        when(llmProviderAdapter.generateText(anyString())).thenReturn(
+                "{\"followUpQuestion\":\"How can callers change the hidden state safely?\"}");
 
         AnswerAnalysisResult result = service.analyzeAnswer(context);
 
-        assertEquals(AnswerAnalysisResult.Classification.PARTIAL, result.classification());
-        assertEquals("controlled access", result.missingConcepts().get(0));
-        assertEquals(0.7, result.criteria().get(0).scoreFraction());
-        assertEquals("Data hiding", result.criteria().get(0).criteriaName());
+        assertEquals("How can callers change the hidden state safely?", result.followUpQuestion());
+        ArgumentCaptor<String> prompt = ArgumentCaptor.forClass(String.class);
+        verify(llmProviderAdapter).generateText(prompt.capture());
+        assertFalse(prompt.getValue().contains("\"rubric\":"));
+        assertFalse(prompt.getValue().contains("\"scoreFraction\":"));
+        assertFalse(prompt.getValue().contains("\"criteria\":"));
+        org.junit.jupiter.api.Assertions.assertTrue(prompt.getValue().contains("Do not grade, score, evaluate correctness"));
     }
 
     @Test
-    void rejectsMissingRubricResultsInsteadOfInventingAnAssessment() {
+    void acceptsNoFollowUpWhenTheInterviewerNeedsNoClarification() {
         AnswerAnalysisServiceImpl service = new AnswerAnalysisServiceImpl(llmProviderAdapter, objectMapper);
-        AnswerAnalysisContext context = new AnswerAnalysisContext(
-                "vi", "Question", "Question", "Answer", List.of(),
-                List.of(new AnswerAnalysisContext.RubricItem(0, "Concept", "Expected idea", 1)), 0, 1, 60);
-        when(llmProviderAdapter.generateText(anyString())).thenReturn("""
-                {"classification":"SUFFICIENT","summary":"Looks good.","missingConcepts":[],
-                 "followUpQuestion":null,"criteria":[]}
-                """);
+        when(llmProviderAdapter.generateText(anyString())).thenReturn("{\"followUpQuestion\":null}");
 
-        assertThrows(ExternalServiceException.class, () -> service.analyzeAnswer(context));
+        assertEquals(null, service.analyzeAnswer(new AnswerAnalysisContext(
+                "en", "Question", "Question", "Transcript", List.of(), 1, 1, 20)).followUpQuestion());
+    }
+
+    @Test
+    void rejectsBlankFollowUpQuestions() {
+        AnswerAnalysisServiceImpl service = new AnswerAnalysisServiceImpl(llmProviderAdapter, objectMapper);
+        when(llmProviderAdapter.generateText(anyString())).thenReturn("{\"followUpQuestion\":\" \"}");
+
+        assertThrows(ExternalServiceException.class,
+                () -> service.analyzeAnswer(new AnswerAnalysisContext("vi", "Q", "Q", "A", List.of(), 0, 1, 10)));
     }
 }
