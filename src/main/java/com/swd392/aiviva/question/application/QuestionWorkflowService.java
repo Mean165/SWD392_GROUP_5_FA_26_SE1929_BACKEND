@@ -37,7 +37,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class QuestionWorkflowService {
-    private static final Set<String> BLOOM_LEVELS = Set.of("REMEMBER", "UNDERSTAND", "APPLY", "ANALYZE");
+    private static final Set<String> BLOOM_LEVELS = java.util.Arrays.stream(BloomLevel.values()).map(Enum::name).collect(java.util.stream.Collectors.toUnmodifiableSet());
     private static final Map<String, String> FILE_TYPES = Map.of(
             ".pdf", "application/pdf",
             ".pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -162,10 +162,15 @@ public class QuestionWorkflowService {
         if (request.rubricTotalPoints().compareTo(rubricTotalPoints) != 0) throw new BusinessException("rubricTotalPoints must match configured total " + rubricTotalPoints);
         if (!Set.of("vi", "en").contains(request.language())) throw new BusinessException("language must be vi or en");
         int bloomCount = 0;
+        Map<String, Integer> normalizedDistribution = new java.util.LinkedHashMap<>();
         for (var entry : request.bloomDistribution().entrySet()) {
-            if (!BLOOM_LEVELS.contains(entry.getKey()) || entry.getValue() == null || entry.getValue() < 0)
-                throw new BusinessException("bloomDistribution accepts REMEMBER, UNDERSTAND, APPLY, ANALYZE with non-negative counts");
+            String level;
+            try { level = BloomLevel.parse(entry.getKey()).name(); }
+            catch (IllegalArgumentException ex) { throw new BusinessException("Invalid Bloom level in bloomDistribution: " + entry.getKey()); }
+            if (entry.getValue() == null || entry.getValue() < 0)
+                throw new BusinessException("bloomDistribution accepts the six Bloom levels with non-negative counts");
             bloomCount += entry.getValue();
+            normalizedDistribution.merge(level, entry.getValue(), Integer::sum);
         }
         if (bloomCount != request.numberOfQuestions()) throw new BusinessException("Bloom distribution must add up to numberOfQuestions");
         for (UUID documentId : request.documentIds()) {
@@ -174,7 +179,9 @@ public class QuestionWorkflowService {
                     documentId, request.subjectId(), request.topicId());
             if (!"READY".equals(status)) throw new BusinessException("Every selected document must be READY and belong to the selected topic");
         }
-        QuestionGenerationJobStore.Snapshot job = jobs.enqueue(request.subjectId(), request.topicId(), actor, request.documentIds(), request, requestsPerHour);
+        GenerateRequest normalizedRequest = new GenerateRequest(request.subjectId(), request.topicId(), request.documentIds(),
+                request.numberOfQuestions(), normalizedDistribution, request.language(), request.generateRubric(), request.rubricTotalPoints());
+        QuestionGenerationJobStore.Snapshot job = jobs.enqueue(request.subjectId(), request.topicId(), actor, request.documentIds(), normalizedRequest, requestsPerHour);
         try {
             audit.record(actor, "QUESTION_GENERATION_CREATED", "QUESTION_GENERATION_JOB", job.jobId(), null, mapper.writeValueAsString(request));
             events.publishEvent(new RunGeneration(job.jobId()));
@@ -188,7 +195,7 @@ public class QuestionWorkflowService {
 
     public Map<String, Object> job(UUID jobId) {
         QuestionGenerationJobStore.Snapshot job = jobs.find(jobId);
-        if (job == null) throw new ResourceNotFoundException("Generation job is unavailable; in-memory jobs are lost when the backend restarts");
+        if (job == null) throw new ResourceNotFoundException("Generation job was not found or has expired");
         if (!currentUser.isAdmin() && !job.requestedBy().equals(currentUser.currentUserId()))
             throw new org.springframework.security.access.AccessDeniedException("Job is not available to this Lecturer");
         requireSubjectAccess(job.subjectId());
@@ -224,15 +231,16 @@ public class QuestionWorkflowService {
         if (bankOnly) where.append(" AND q.approval_status='APPROVED'");
         else if (status != null && !status.isBlank()) { where.append(" AND q.approval_status=?"); args.add(status.toUpperCase(Locale.ROOT)); }
         if (bloomLevel != null && !bloomLevel.isBlank()) {
-            where.append(" AND CASE WHEN q.bloom_level='EVALUATE' THEN 'ANALYZE' ELSE q.bloom_level END=?");
-            args.add(BloomLevel.normalizeLegacyValue(bloomLevel));
+            where.append(" AND q.bloom_level=?");
+            try { args.add(BloomLevel.parse(bloomLevel).name()); }
+            catch (IllegalArgumentException ex) { throw new BusinessException(ex.getMessage()); }
         }
         if (sourceType != null && !sourceType.isBlank()) { where.append(" AND q.source_type=?"); args.add(sourceType.toUpperCase(Locale.ROOT)); }
         String from = " FROM question q JOIN subject_topic t ON t.topic_id=q.topic_id" + where;
         Long total = jdbc.queryForObject("SELECT count(*)" + from, Long.class, args.toArray());
         List<Object> pageArgs = new ArrayList<>(args); pageArgs.add(size); pageArgs.add(page * size);
         List<Map<String, Object>> items = jdbc.queryForList("SELECT q.question_id AS \"questionId\", q.topic_id AS \"topicId\", t.subject_id AS \"subjectId\", q.question_text AS \"questionText\", q.bloom_level AS \"bloomLevel\", q.source_type AS \"sourceType\", q.approval_status AS status, q.created_at AS \"createdAt\", q.generation_metadata_json::text AS \"generationMetadata\"" + from + " ORDER BY q.created_at DESC LIMIT ? OFFSET ?", pageArgs.toArray());
-        items.forEach(item -> item.put("bloomLevel", BloomLevel.normalizeLegacyValue((String) item.get("bloomLevel"))));
+        items.forEach(item -> item.put("bloomLevel", BloomLevel.parse((String) item.get("bloomLevel")).name()));
         items.forEach(this::attachGenerationMetadata);
         return Map.of("items", items, "page", page, "size", size, "totalItems", total == null ? 0 : total,
                 "totalPages", total == null ? 0 : (int) Math.ceil((double) total / size));
@@ -245,7 +253,7 @@ public class QuestionWorkflowService {
             item.put("questionId", rs.getObject("question_id")); item.put("subjectId", rs.getObject("subject_id"));
             item.put("topicId", rs.getObject("topic_id")); item.put("createdBy", rs.getObject("created_by"));
             item.put("questionText", rs.getString("question_text"));
-            item.put("bloomLevel", BloomLevel.normalizeLegacyValue(rs.getString("bloom_level"))); item.put("sourceType", rs.getString("source_type"));
+            item.put("bloomLevel", BloomLevel.parse(rs.getString("bloom_level")).name()); item.put("sourceType", rs.getString("source_type"));
             item.put("status", rs.getString("approval_status")); item.put("createdAt", rs.getObject("created_at"));
             item.put("generationMetadata", rs.getString("generation_metadata_json")); return item;
         }, questionId);
@@ -277,7 +285,9 @@ public class QuestionWorkflowService {
         UUID subjectId = UUID.fromString(before.get("subjectId").toString());
         authorizeQuestion(questionId, subjectId, String.valueOf(before.get("status")), UUID.fromString(before.get("createdBy").toString()));
         QuestionStateTransition.requireEditable(String.valueOf(before.get("status")));
-        String bloomLevel = BloomLevel.normalizeLegacyValue(request.bloomLevel());
+        String bloomLevel;
+        try { bloomLevel = BloomLevel.parse(request.bloomLevel()).name(); }
+        catch (IllegalArgumentException ex) { throw new BusinessException(ex.getMessage()); }
         if (!BLOOM_LEVELS.contains(bloomLevel)) throw new BusinessException("Invalid Bloom level");
         validateRubric(request.rubric());
         String beforeJson = json(before);
@@ -287,6 +297,8 @@ public class QuestionWorkflowService {
         metadata.put("suggestedAnswerMinutes", request.suggestedAnswerMinutes());
         jdbc.update("UPDATE question SET question_text=?, bloom_level=?, generation_metadata_json=?::jsonb WHERE question_id=?",
                 request.questionText().trim(), bloomLevel, metadata.toString(), questionId);
+        Boolean overrideUsed = jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM ai_rubric_assessment a JOIN rubric_criteria c ON c.criteria_id=a.criteria_id WHERE c.question_id=?)", Boolean.class, questionId);
+        if (Boolean.TRUE.equals(overrideUsed)) throw new BusinessException("Question rubric override is locked because it is referenced by an assessment");
         jdbc.update("DELETE FROM rubric_criteria WHERE question_id=?", questionId);
         saveRubric(questionId, request.rubric());
         Map<String, Object> after = question(questionId);

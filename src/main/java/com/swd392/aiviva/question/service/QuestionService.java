@@ -10,6 +10,8 @@ public interface QuestionService {
 
     List<QuestionResponse> getQuestions();
 
+    List<QuestionResponse> getQuestions(UUID topicId, String bloomLevel, String approvalStatus);
+
     List<QuestionResponse> getQuestionsByTopicId(UUID topicId);
 
     QuestionResponse getQuestionById(UUID id);
