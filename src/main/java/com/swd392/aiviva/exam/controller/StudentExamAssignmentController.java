@@ -5,7 +5,6 @@ import com.swd392.aiviva.common.response.PageResponse;
 import com.swd392.aiviva.exam.dto.response.ExamEntryEligibilityResponse;
 import com.swd392.aiviva.exam.dto.response.StudentExamAssignmentResponse;
 import com.swd392.aiviva.exam.service.StudentExamAssignmentService;
-import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,13 +25,15 @@ public class StudentExamAssignmentController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<StudentExamAssignmentResponse>>> getSchedule(
-            @RequestParam(required = false) OffsetDateTime from,
-            @RequestParam(required = false) OffsetDateTime to,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return ResponseEntity.ok(ApiResponse.success(
-                "Exam schedule retrieved", assignmentService.getSchedule(from, to, status, page, size)));
+                "Exam schedule retrieved", assignmentService.getSchedule(
+                        com.swd392.aiviva.exam.service.StudentExamDateFilter.parse(from, false),
+                        com.swd392.aiviva.exam.service.StudentExamDateFilter.parse(to, true), status, page, size)));
     }
 
     @GetMapping("/history")
@@ -52,8 +53,9 @@ public class StudentExamAssignmentController {
 
     @GetMapping("/{assignmentId}/eligibility")
     public ResponseEntity<ApiResponse<ExamEntryEligibilityResponse>> getEligibility(
-            @PathVariable UUID assignmentId) {
+            @PathVariable UUID assignmentId,
+            @RequestParam(required = false) UUID examAttemptId) {
         return ResponseEntity.ok(ApiResponse.success(
-                "Exam entry eligibility retrieved", assignmentService.getEligibility(assignmentId)));
+                "Exam entry eligibility retrieved", assignmentService.getEligibility(assignmentId, examAttemptId)));
     }
 }

@@ -1,0 +1,32 @@
+{
+  "vi": {
+    "CSDL": "cơ sở dữ liệu",
+    "OOP": "lập trình hướng đối tượng",
+    "API": "ây pi ai",
+    "SQL": "ét kiu eo",
+    "HTTP": "ây chờ tê tê pê",
+    "REST": "rét",
+    "CPU": "xi pi iu",
+    "GPU": "gi pi iu",
+    "RAM": "ram",
+    "UML": "iu em eo",
+    "AI": "ây ai",
+    "STT": "ét tê tê",
+    "TTS": "tê tê ét"
+  },
+  "en": {
+    "CSDL": "database",
+    "OOP": "object oriented programming",
+    "API": "A P I",
+    "SQL": "S Q L",
+    "HTTP": "H T T P",
+    "REST": "rest",
+    "CPU": "C P U",
+    "GPU": "G P U",
+    "RAM": "ram",
+    "UML": "U M L",
+    "AI": "A I",
+    "STT": "speech to text",
+    "TTS": "text to speech"
+  }
+}

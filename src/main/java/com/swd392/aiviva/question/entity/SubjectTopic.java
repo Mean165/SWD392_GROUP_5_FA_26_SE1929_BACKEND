@@ -48,4 +48,8 @@ public class SubjectTopic implements Serializable {
 
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "subject_id")
+    private Subject subject;
 }

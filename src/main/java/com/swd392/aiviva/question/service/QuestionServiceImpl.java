@@ -53,6 +53,30 @@ public class QuestionServiceImpl implements QuestionService {
     }
 
     @Override
+    public List<QuestionResponse> getQuestions(UUID topicId, String bloomLevel, String approvalStatus) {
+        List<Question> questions;
+        if (topicId != null && !subjectTopicRepository.existsById(topicId)) {
+            throw new ResourceNotFoundException("Subject topic not found with id: " + topicId);
+        }
+        if (topicId != null && approvalStatus != null && !approvalStatus.isBlank()) {
+            questions = questionRepository.findByTopic_TopicIdAndApprovalStatusOrderByCreatedAtAsc(topicId, approvalStatus.trim().toUpperCase());
+        } else if (topicId != null) {
+            questions = questionRepository.findByTopic_TopicId(topicId);
+        } else if (approvalStatus != null && !approvalStatus.isBlank()) {
+            questions = questionRepository.findByApprovalStatusOrderByCreatedAtAsc(approvalStatus.trim().toUpperCase());
+        } else {
+            questions = questionRepository.findAll();
+        }
+        if (bloomLevel != null && !bloomLevel.isBlank()) {
+            String bloom;
+            try { bloom = BloomLevel.parse(bloomLevel).name(); }
+            catch (IllegalArgumentException e) { throw new BusinessException(e.getMessage()); }
+            questions = questions.stream().filter(q -> bloom.equals(q.getBloomLevel())).toList();
+        }
+        return questions.stream().map(questionMapper::toResponse).toList();
+    }
+
+    @Override
     public List<QuestionResponse> getQuestionsByTopicId(UUID topicId) {
         if (!subjectTopicRepository.existsById(topicId)) {
             throw new ResourceNotFoundException("Subject topic not found with id: " + topicId);
@@ -94,9 +118,9 @@ public class QuestionServiceImpl implements QuestionService {
         String bloomLevel = BloomLevel.REMEMBER.name();
         if (request.getBloomLevel() != null && !request.getBloomLevel().isBlank()) {
             try {
-                bloomLevel = BloomLevel.valueOf(request.getBloomLevel().trim().toUpperCase()).name();
+                bloomLevel = BloomLevel.parse(request.getBloomLevel()).name();
             } catch (IllegalArgumentException e) {
-                throw new BusinessException("Invalid bloom level: " + request.getBloomLevel() + ". Valid values: REMEMBER, UNDERSTAND, APPLY, ANALYZE");
+                throw new BusinessException("Invalid bloom level: " + request.getBloomLevel() + ". Valid values: REMEMBER, UNDERSTAND, APPLY, ANALYZE, EVALUATE, CREATE");
             }
         }
 
@@ -197,13 +221,17 @@ public class QuestionServiceImpl implements QuestionService {
         List<FileImportHelper.QuestionImportDto> importedData = FileImportHelper.parseFile(file);
         
         List<Question> questionsToSave = new java.util.ArrayList<>();
+        int rowNumber = 1;
         for (FileImportHelper.QuestionImportDto dto : importedData) {
+            if (dto.questionText == null || dto.questionText.isBlank()) {
+                throw new BusinessException("Question text is empty at import row " + rowNumber);
+            }
             String bloomLevel = BloomLevel.REMEMBER.name();
             if (dto.bloomLevel != null && !dto.bloomLevel.isBlank()) {
                 try {
-                    bloomLevel = BloomLevel.valueOf(dto.bloomLevel.trim().toUpperCase()).name();
+                    bloomLevel = BloomLevel.parse(dto.bloomLevel).name();
                 } catch (IllegalArgumentException e) {
-                    // Ignore and use default
+                    throw new BusinessException("Invalid bloom level at import row " + rowNumber + ": " + dto.bloomLevel);
                 }
             }
 
@@ -218,6 +246,7 @@ public class QuestionServiceImpl implements QuestionService {
                     .build();
                     
             questionsToSave.add(question);
+            rowNumber++;
         }
 
         List<Question> savedQuestions = questionRepository.saveAll(questionsToSave);

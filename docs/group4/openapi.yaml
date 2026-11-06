@@ -1,0 +1,229 @@
+openapi: 3.0.3
+info:
+  title: AiViva Group 4 Grading API
+  version: 1.0.0
+servers:
+  - url: /api/v1/grading
+security:
+  - bearerAuth: []
+paths:
+  /capabilities:
+    get:
+      summary: Provider readiness and feature capabilities
+      responses:
+        '200': { description: Wrapped capability data }
+  /queue:
+    get:
+      summary: Assigned lecturer grading queue
+      parameters:
+        - { name: examId, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: attemptNo, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: finishedFrom, in: query, schema: { type: string, format: date-time } }
+        - { name: finishedTo, in: query, schema: { type: string, format: date-time } }
+        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200': { description: Wrapped page `{items,page,size,total}` }
+        '403': { description: Exam not assigned }
+  /queue/summary:
+    get:
+      summary: Counts by workflow status
+      parameters:
+        - { name: examId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Wrapped status counts }
+  /reconcile:
+    post:
+      summary: Admin-only completed-attempt reconciliation
+      responses:
+        '200': { description: Created submissions and queued AI runs }
+        '403': { description: Admin role required }
+  /submissions/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      summary: Submission detail, transcript, rubric, suggestions and lecturer draft
+      responses:
+        '200': { description: Wrapped submission detail }
+        '404': { description: Submission not found }
+  /submissions/{id}/claim:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      summary: Claim for ten minutes
+      responses:
+        '200': { description: Claimed submission }
+        '423': { description: LOCKED_BY_OTHER }
+  /submissions/{id}/lock:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    put:
+      summary: Renew own claim
+      responses:
+        '200': { description: Claim renewed }
+    delete:
+      summary: Release own claim
+      responses:
+        '200': { description: Claim released }
+  /submissions/{id}/scores:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    put:
+      summary: Upsert lecturer criterion scores
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scores, version]
+              properties:
+                version: { type: integer, format: int64 }
+                scores:
+                  type: array
+                  items:
+                    type: object
+                    required: [questionId, criterionId, score, maxScore, source]
+                    properties:
+                      questionId: { type: string, format: uuid }
+                      criterionId: { type: string, format: uuid }
+                      score: { type: number, minimum: 0 }
+                      maxScore: { type: number, exclusiveMinimum: 0 }
+                      source: { type: string, enum: [OVERRIDDEN, MANUAL] }
+                      overrideReason: { type: string }
+                      comment: { type: string }
+      responses:
+        '200': { description: Saved lecturer scores }
+        '409': { description: STALE_VERSION or RUBRIC_MISMATCH }
+        '423': { description: LOCKED_BY_OTHER }
+  /submissions/{id}/accept-ai:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      summary: Explicit lecturer acceptance of latest AI suggestions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version: { type: integer, format: int64 }
+      responses:
+        '200': { description: Lecturer cells created with ACCEPTED_AI source }
+  /submissions/{id}/questions/{questionId}/notes:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: questionId, in: path, required: true, schema: { type: string, format: uuid } }
+    put:
+      summary: Save lecturer note and approval status for one question
+      responses:
+        '200': { description: Note saved }
+  /submissions/{id}/ai-runs:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      summary: Queue a manual AI rerun
+      responses:
+        '202': { description: Run queued }
+        '429': { description: RATE_LIMITED; Retry-After is returned }
+        '503': { description: AI_NOT_READY }
+    get:
+      summary: List run states
+      responses:
+        '200': { description: Wrapped AI run list }
+  /submissions/{id}/finalize:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      summary: Lecturer-only explicit finalize
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm, version]
+              properties:
+                confirm: { type: boolean, enum: [true] }
+                version: { type: integer, format: int64 }
+                note: { type: string }
+      responses:
+        '200': { description: Final revision created }
+        '422': { description: INCOMPLETE_SCORES }
+        '409': { description: STALE_VERSION or ALREADY_FINALIZED }
+  /submissions/{id}/release:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      summary: Release a finalized grade
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version: { type: integer, format: int64 }
+      responses:
+        '200': { description: Released }
+        '409': { description: NOT_FINALIZED }
+  /submissions/{id}/reopen:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      summary: Reopen with required reason
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 1 }
+                note: { type: string }
+                version: { type: integer, format: int64 }
+      responses:
+        '200': { description: Reopened; prior revisions are retained }
+  /submissions/{id}/audit:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      summary: Read immutable submission audit chain
+      responses:
+        '200': { description: Ordered audit events }
+  /submissions/{id}/revisions:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      summary: Read immutable final revisions
+      responses:
+        '200': { description: Ordered revisions }
+  /exams/{examId}/analytics/agreement:
+    parameters:
+      - { name: examId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      summary: Latest-run criterion agreement metrics
+      responses:
+        '200': { description: Comparison count, MAE, exact and within-one agreement }
+  /exams/{examId}/settings:
+    parameters:
+      - { name: examId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      summary: Read exam grading settings
+      responses:
+        '200': { description: Settings }
+    put:
+      summary: Update supported settings
+      responses:
+        '200': { description: Updated settings }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

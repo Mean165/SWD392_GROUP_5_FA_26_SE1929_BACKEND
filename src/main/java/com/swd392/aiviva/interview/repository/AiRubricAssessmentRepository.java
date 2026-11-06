@@ -9,4 +9,5 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface AiRubricAssessmentRepository extends JpaRepository<AiRubricAssessment, UUID> {
     List<AiRubricAssessment> findByTurn_TurnId(UUID turnId);
+    boolean existsByCriteria_CriteriaId(UUID criteriaId);
 }

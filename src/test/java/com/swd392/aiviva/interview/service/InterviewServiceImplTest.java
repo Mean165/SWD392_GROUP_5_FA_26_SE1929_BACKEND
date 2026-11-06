@@ -1,6 +1,8 @@
 package com.swd392.aiviva.interview.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -13,6 +15,7 @@ import static org.mockito.Mockito.lenient;
 
 import com.swd392.aiviva.common.config.InterviewConfig;
 import com.swd392.aiviva.common.exception.AttemptExpiredException;
+import com.swd392.aiviva.common.exception.ExternalServiceException;
 import com.swd392.aiviva.exam.entity.ExamSession;
 import com.swd392.aiviva.exam.entity.StudentSessionAssignment;
 import com.swd392.aiviva.exam.repository.StudentSessionAssignmentRepository;
@@ -183,11 +186,7 @@ class InterviewServiceImplTest {
     @Test
     void finalizesOnceAndReturnsThePersistedResultOnRetry() {
         when(answerAnalysisService.analyzeAnswer(any())).thenReturn(new AnswerAnalysisResult(
-                AnswerAnalysisResult.Classification.SUFFICIENT,
-                "The answer addresses the question.",
-                List.of(),
-                null,
-                List.of()));
+                null));
         SubmitAnswerRequest request = SubmitAnswerRequest.builder()
                 .attemptId(attemptId)
                 .turnId(turnId)
@@ -199,9 +198,9 @@ class InterviewServiceImplTest {
 
         assertTrue(first.isCompleted());
         assertEquals(first.getTranscriptText(), retry.getTranscriptText());
-        assertEquals("SUFFICIENT", retry.getAnswerClassification());
         verify(answerAnalysisService, times(1)).analyzeAnswer(any());
         verify(interactionTurnRepository, times(1)).save(turn);
+        verify(rubricAssessmentRepository, never()).save(any());
     }
 
     @Test
@@ -210,8 +209,7 @@ class InterviewServiceImplTest {
         when(sttService.transcribe("data:audio/webm;base64,AA==", "en")).thenReturn("Recognized answer.");
         when(audioStorageService.store(attemptId, "data:audio/webm;base64,AA=="))
                 .thenReturn(new InterviewAudioStorageService.StoredAudio("/stored/audio.webm", "audio/webm"));
-        when(answerAnalysisService.analyzeAnswer(any())).thenReturn(new AnswerAnalysisResult(
-                AnswerAnalysisResult.Classification.SUFFICIENT, "Relevant answer.", List.of(), null, List.of()));
+        when(answerAnalysisService.analyzeAnswer(any())).thenReturn(new AnswerAnalysisResult(null));
 
         service.submitAnswer(SubmitAnswerRequest.builder()
                 .attemptId(attemptId)
@@ -235,11 +233,7 @@ class InterviewServiceImplTest {
     void doesNotCreateFollowUpsAfterTheConfiguredLimit() {
         assignment.getSession().setMaxFollowupPerQuestion(0);
         when(answerAnalysisService.analyzeAnswer(any())).thenReturn(new AnswerAnalysisResult(
-                AnswerAnalysisResult.Classification.PARTIAL,
-                "A key point is missing.",
-                List.of("key point"),
-                "Can you clarify the relevant point?",
-                List.of()));
+                "Can you clarify the relevant point?"));
 
         SubmitAnswerResponse response = service.submitAnswer(SubmitAnswerRequest.builder()
                 .attemptId(attemptId)
@@ -256,11 +250,7 @@ class InterviewServiceImplTest {
     @Test
     void createsOneContextualFollowUpAndDoesNotDuplicateItOnRetry() {
         when(answerAnalysisService.analyzeAnswer(any())).thenReturn(new AnswerAnalysisResult(
-                AnswerAnalysisResult.Classification.PARTIAL,
-                "The answer omits a limitation.",
-                List.of("one limitation"),
-                "What limitation would apply in this case?",
-                List.of()));
+                "What limitation would apply in this case?"));
         SubmitAnswerRequest request = SubmitAnswerRequest.builder()
                 .attemptId(attemptId)
                 .turnId(turnId)
@@ -275,6 +265,31 @@ class InterviewServiceImplTest {
         assertTrue(retry.isFollowUpGenerated());
         assertEquals(2, persistedTurns.size());
         verify(answerAnalysisService, times(1)).analyzeAnswer(any());
+    }
+
+    @Test
+    void advancesToNextMainQuestionWhenFollowUpAnalyzerIsUnavailable() {
+        assignment.getSession().setMaxMainQuestions(2);
+        Question nextQuestion = Question.builder()
+                .questionId(UUID.randomUUID())
+                .questionText("Explain the next core concept.")
+                .build();
+        when(answerAnalysisService.analyzeAnswer(any()))
+                .thenThrow(new ExternalServiceException("Follow-up provider unavailable."));
+        when(questionRepository.findByApprovalStatusOrderByCreatedAtAsc("APPROVED"))
+                .thenReturn(List.of(turn.getMainQuestion(), nextQuestion));
+
+        SubmitAnswerResponse response = service.submitAnswer(SubmitAnswerRequest.builder()
+                .attemptId(attemptId)
+                .turnId(turnId)
+                .transcriptText("A relevant answer.")
+                .build());
+
+        assertFalse(response.isCompleted());
+        assertNotNull(response.getNextTurn());
+        assertEquals("MAIN", response.getNextTurn().getTurnType());
+        assertEquals("Explain the next core concept.", response.getNextTurn().getAiQuestionText());
+        assertEquals("A relevant answer.", turn.getTranscriptText());
     }
 
     @Test
