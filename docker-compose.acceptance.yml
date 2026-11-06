@@ -1,9 +1,0 @@
-services:
-  postgresdb:
-    container_name: aiviva-postgres-acceptance
-    ports:
-      - "55433:5432"
-  backend:
-    container_name: aiviva-backend-acceptance
-    ports:
-      - "18080:8080"

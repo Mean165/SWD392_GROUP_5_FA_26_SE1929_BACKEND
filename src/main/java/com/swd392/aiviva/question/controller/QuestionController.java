@@ -35,11 +35,8 @@ public class QuestionController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<QuestionResponse>>> getQuestions(
-            @org.springframework.web.bind.annotation.RequestParam(required = false) UUID topicId,
-            @org.springframework.web.bind.annotation.RequestParam(required = false) String bloomLevel,
-            @org.springframework.web.bind.annotation.RequestParam(required = false, name = "approvalStatus") String approvalStatus) {
-        return ResponseEntity.ok(ApiResponse.success("Questions retrieved", questionService.getQuestions(topicId, bloomLevel, approvalStatus)));
+    public ResponseEntity<ApiResponse<List<QuestionResponse>>> getQuestions() {
+        return ResponseEntity.ok(ApiResponse.success("Questions retrieved", questionService.getQuestions()));
     }
 
     @GetMapping("/{id}")

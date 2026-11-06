@@ -44,7 +44,7 @@ public class FinalGradeReport implements Serializable {
     @JoinColumn(name = "finalized_by_lecturer_id")
     private AppUser finalizedByLecturer;
 
-    @Column(name = "total_ai_score", precision = 5, scale = 2)
+    @Column(name = "total_ai_score", precision = 5, scale = 2, nullable = false)
     private BigDecimal totalAiScore;
 
     @Column(name = "final_teacher_score", precision = 5, scale = 2)

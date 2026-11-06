@@ -8,7 +8,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.io.Serializable;
 import java.time.OffsetDateTime;
@@ -33,12 +33,9 @@ public class VivaAttempt implements Serializable {
     @Column(name = "attempt_id", nullable = false)
     private UUID attemptId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "assignment_id", nullable = false)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assignment_id", unique = true, nullable = false)
     private StudentSessionAssignment assignment;
-
-    @Column(name = "exam_attempt_id", unique = true)
-    private UUID examAttemptId;
 
     @Column(name = "full_audio_url")
     private String fullAudioUrl;

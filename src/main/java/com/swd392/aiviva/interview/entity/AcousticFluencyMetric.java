@@ -47,19 +47,4 @@ public class AcousticFluencyMetric implements Serializable {
 
     @Column(name = "speech_clarity_score", precision = 4, scale = 2)
     private BigDecimal speechClarityScore;
-
-    @Column(name = "response_latency_ms")
-    private Long responseLatencyMs;
-
-    @Column(name = "speech_duration_ms")
-    private Long speechDurationMs;
-
-    @Column(name = "longest_pause_ms")
-    private Long longestPauseMs;
-
-    @Column(name = "filler_count")
-    private Integer fillerCount;
-
-    @Column(name = "confidence_source", length = 20)
-    private String confidenceSource;
 }

@@ -33,11 +33,7 @@ public class RubricCriteria implements Serializable {
     private UUID criteriaId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "rubric_id")
-    private Rubric rubric;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "question_id")
+    @JoinColumn(name = "question_id", nullable = false)
     private Question question;
 
     @Column(name = "criteria_name", nullable = false)

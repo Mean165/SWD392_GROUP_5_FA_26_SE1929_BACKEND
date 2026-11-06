@@ -62,19 +62,4 @@ public class ExamSession implements Serializable {
 
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
-
-    @Column(name = "buffer_minutes", nullable = false)
-    private Integer bufferMinutes;
-
-    @Column(name = "avoid_repeat_window", nullable = false)
-    private Integer avoidRepeatWindow;
-
-    @Column(name = "max_overlap_percent", nullable = false)
-    private Integer maxOverlapPercent;
-
-    @Column(name = "description", columnDefinition = "TEXT")
-    private String description;
-
-    @Column(name = "updated_at", nullable = false)
-    private OffsetDateTime updatedAt;
 }

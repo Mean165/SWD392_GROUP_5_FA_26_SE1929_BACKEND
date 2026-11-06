@@ -16,8 +16,6 @@ public class InterviewResponse {
 
     private UUID attemptId;
     private UUID assignmentId;
-    private UUID examAttemptId;
-    private Integer attemptNo;
     private UUID sessionId;
     private UUID studentId;
     private String status;
@@ -25,7 +23,4 @@ public class InterviewResponse {
     private OffsetDateTime endTime;
     private InteractionTurnResponse currentTurn;
     private List<InteractionTurnResponse> turns;
-    private List<PlannedQuestionResponse> questionPlan;
-    private Integer totalMainQuestions;
-    private Integer currentMainPosition;
 }

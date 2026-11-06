@@ -2,7 +2,6 @@ package com.swd392.aiviva.exam.dto.response;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
-import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,11 +25,4 @@ public class ExamSessionResponse {
     private String status;
     private OffsetDateTime startTime;
     private OffsetDateTime createdAt;
-    private Integer bufferMinutes;
-    private Integer avoidRepeatWindow;
-    private Integer maxOverlapPercent;
-    private String description;
-    private Map<String, Integer> bloomDistribution;
-    private Map<String, Object> statistics;
-    private Map<String, Object> readiness;
 }

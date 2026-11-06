@@ -5,7 +5,6 @@ import com.swd392.aiviva.common.response.ApiResponse;
 import com.swd392.aiviva.devicecheck.dto.response.DeviceCheckConfigResponse;
 import com.swd392.aiviva.devicecheck.dto.response.DeviceCheckSttResponse;
 import com.swd392.aiviva.devicecheck.service.DeviceCheckService;
-import com.swd392.aiviva.interview.ai.tts.TtsAudioFormat;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -51,24 +50,22 @@ public class DeviceCheckController {
     }
 
     @Operation(summary = "Phát câu mẫu kiểm tra loa")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "MP3 or WAV audio sample",
-            content = @Content(mediaType = "audio/mpeg, audio/wav", schema = @Schema(type = "string", format = "binary")))
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "MP3 audio sample",
+            content = @Content(mediaType = "audio/mpeg", schema = @Schema(type = "string", format = "binary")))
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Unsupported language")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Student role required")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "429", description = "Rate limit exceeded")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502", description = "TTS provider failed")
-    @GetMapping(value = "/tts", produces = {"audio/mpeg", "audio/wav"})
+    @GetMapping(value = "/tts", produces = "audio/mpeg")
     public ResponseEntity<byte[]> getTtsSample(
             @Parameter(description = "Language: vi or en")
             @RequestParam(defaultValue = "vi") String language) {
         byte[] audio = deviceCheckService.synthesizeTest(currentUserId(), language);
-        String contentType = TtsAudioFormat.contentType(audio);
-        String extension = TtsAudioFormat.extension(audio);
         return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(contentType))
+                .contentType(MediaType.parseMediaType("audio/mpeg"))
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"device-check." + extension + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"device-check.mp3\"")
                 .body(audio);
     }
 

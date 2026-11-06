@@ -1,12 +1,10 @@
 package com.swd392.aiviva.exam.dto.request;
 
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.OffsetDateTime;
 import java.util.UUID;
-import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -41,20 +39,4 @@ public class CreateExamSessionRequest {
     private OffsetDateTime startTime;
 
     private UUID createdBy;
-
-    @Min(value = 0, message = "Buffer minutes must be non-negative")
-    @lombok.Builder.Default
-    private Integer bufferMinutes = 5;
-
-    @Min(value = 0, message = "Avoid repeat window must be non-negative")
-    @lombok.Builder.Default
-    private Integer avoidRepeatWindow = 2;
-
-    @Min(value = 0, message = "Maximum overlap percent must be non-negative")
-    @Max(value = 100, message = "Maximum overlap percent must be at most 100")
-    private Integer maxOverlapPercent;
-
-    private String description;
-
-    private Map<String, Integer> bloomDistribution;
 }

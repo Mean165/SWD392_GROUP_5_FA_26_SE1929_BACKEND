@@ -13,6 +13,4 @@ public interface QuestionRepository extends JpaRepository<Question, UUID> {
     List<Question> findByApprovalStatusOrderByCreatedAtAsc(String approvalStatus);
 
     List<Question> findByTopic_TopicIdAndApprovalStatusOrderByCreatedAtAsc(UUID topicId, String approvalStatus);
-
-    List<Question> findByTopic_Subject_SubjectIdAndApprovalStatusOrderByCreatedAtAsc(UUID subjectId, String approvalStatus);
 }

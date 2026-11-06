@@ -9,5 +9,4 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface SubjectTopicRepository extends JpaRepository<SubjectTopic, UUID> {
     Optional<SubjectTopic> findByTopicCode(String topicCode);
-    Optional<SubjectTopic> findFirstBySubject_SubjectIdOrderByTopicName(UUID subjectId);
 }
